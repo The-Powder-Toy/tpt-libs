@@ -1,0 +1,36 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  release:
+    types: [published, created, edited]
+
+jobs:
+  build-lin:
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      ZIP_OUT: tpt-libs-prebuilt-lin64-static.zip
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./build-lin.sh
+      - id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: release
+          release_name: release
+          draft: false
+          prerelease: false
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ZIP_OUT }}
+          asset_name: ${{ env.ZIP_OUT }}
+          asset_content_type: application/zip
