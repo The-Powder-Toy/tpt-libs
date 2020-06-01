@@ -1,0 +1,12 @@
+diff -Naur zlib-1.2.11/win32/Makefile.msc zlib-1.2.11-mt/win32/Makefile.msc
+--- zlib-1.2.11/win32/Makefile.msc	2017-01-15 18:07:08.000000000 +0100
++++ zlib-1.2.11-mt/win32/Makefile.msc	2020-07-29 22:08:48.969351600 +0200
+@@ -26,7 +26,7 @@
+ LD = link
+ AR = lib
+ RC = rc
+-CFLAGS  = -nologo -MD -W3 -O2 -Oy- -Zi -Fd"zlib" $(LOC)
++CFLAGS  = -nologo -MT -W3 -O2 -Oy- -Zi -Fd"zlib" $(LOC)
+ WFLAGS  = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE
+ ASFLAGS = -coff -Zi $(LOC)
+ LDFLAGS = -nologo -debug -incremental:no -opt:ref

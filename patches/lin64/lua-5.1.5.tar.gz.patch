@@ -1,0 +1,35 @@
+diff -Naur lua-5.1.5/src/luaconf.h lua-5.1.5-nr/src/luaconf.h
+--- lua-5.1.5/src/luaconf.h	2008-02-11 17:25:08.000000000 +0100
++++ lua-5.1.5-nr/src/luaconf.h	2020-06-04 21:46:57.517156268 +0200
+@@ -36,7 +36,7 @@
+ #if defined(LUA_USE_LINUX)
+ #define LUA_USE_POSIX
+ #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
+-#define LUA_USE_READLINE	/* needs some extra libraries */
++// #define LUA_USE_READLINE	/* needs some extra libraries */
+ #endif
+ 
+ #if defined(LUA_USE_MACOSX)
+diff -Naur lua-5.1.5/src/Makefile lua-5.1.5-nr/src/Makefile
+--- lua-5.1.5/src/Makefile	2012-02-13 21:41:22.000000000 +0100
++++ lua-5.1.5-nr/src/Makefile	2020-06-04 21:40:03.770366535 +0200
+@@ -90,16 +90,16 @@
+ 	$(MAKE) all MYCFLAGS="-DLUA_USE_POSIX -DLUA_USE_DLOPEN" MYLIBS="-Wl,-E"
+ 
+ freebsd:
+-	$(MAKE) all MYCFLAGS="-DLUA_USE_LINUX" MYLIBS="-Wl,-E -lreadline"
++	$(MAKE) all MYCFLAGS="-DLUA_USE_LINUX" MYLIBS="-Wl,-E"
+ 
+ generic:
+ 	$(MAKE) all MYCFLAGS=
+ 
+ linux:
+-	$(MAKE) all MYCFLAGS=-DLUA_USE_LINUX MYLIBS="-Wl,-E -ldl -lreadline -lhistory -lncurses"
++	$(MAKE) all MYCFLAGS=-DLUA_USE_LINUX MYLIBS="-Wl,-E -ldl"
+ 
+ macosx:
+-	$(MAKE) all MYCFLAGS=-DLUA_USE_LINUX MYLIBS="-lreadline"
++	$(MAKE) all MYCFLAGS=-DLUA_USE_LINUX MYLIBS=""
+ # use this on Mac OS X 10.3-
+ #	$(MAKE) all MYCFLAGS=-DLUA_USE_MACOSX
+ 

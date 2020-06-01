@@ -2,35 +2,59 @@ name: build
 
 on:
   push:
-    branches: [master]
-  pull_request:
-    branches: [master]
-  release:
-    types: [published, created, edited]
+    tags:
+      - 'v*' # git tag v`date +%Y%m%d%H%M%S` -m v`date +%Y%m%d%H%M%S`
 
 jobs:
-  build-lin:
+  release:
     runs-on: ubuntu-latest
-    env:
-      CC: gcc
-      ZIP_OUT: tpt-libs-prebuilt-lin64-static.zip
     steps:
-      - uses: actions/checkout@v2
-      - run: ./build-lin.sh
       - id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: release
-          release_name: release
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
           draft: false
           prerelease: false
+      - run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+      - uses: actions/upload-artifact@v1
+        with:
+          name: release_url
+          path: release_url.txt
+  build:
+    runs-on: ${{ matrix.os }}
+    needs: [release]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform_short: lin
+          - os: macos-latest
+            platform_short: mac
+          - os: windows-latest
+            platform_short: win
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v1
+        with:
+          name: release_url
+      - id: get_release_info
+        run: bash -c "./.github/get-release-info.sh" ## gg github, this is terrible
+      - if: matrix.os == 'macos-latest'
+        run: brew install coreutils
+      - if: matrix.os == 'windows-latest'
+        uses: actions/setup-python@v2
+      - if: matrix.os == 'windows-latest'
+        run: python -m pip install meson ninja
+      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} ./build.sh'
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.ZIP_OUT }}
-          asset_name: ${{ env.ZIP_OUT }}
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: temp/static.zip
+          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-static.zip
           asset_content_type: application/zip

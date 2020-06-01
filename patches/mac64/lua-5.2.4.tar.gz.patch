@@ -1,0 +1,43 @@
+diff -Naur lua-5.2.4/src/luaconf.h lua-5.2.4-nr/src/luaconf.h
+--- lua-5.2.4/src/luaconf.h	2013-11-21 18:26:16.000000000 +0100
++++ lua-5.2.4-nr/src/luaconf.h	2020-06-05 10:03:13.515305988 +0200
+@@ -43,7 +43,7 @@
+ #if defined(LUA_USE_LINUX)
+ #define LUA_USE_POSIX
+ #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
+-#define LUA_USE_READLINE	/* needs some extra libraries */
++// #define LUA_USE_READLINE	/* needs some extra libraries */
+ #define LUA_USE_STRTODHEX	/* assume 'strtod' handles hex formats */
+ #define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
+ #define LUA_USE_LONGLONG	/* assume support for long long */
+@@ -52,7 +52,7 @@
+ #if defined(LUA_USE_MACOSX)
+ #define LUA_USE_POSIX
+ #define LUA_USE_DLOPEN		/* does not need -ldl */
+-#define LUA_USE_READLINE	/* needs an extra library: -lreadline */
++// #define LUA_USE_READLINE	/* needs an extra library: -lreadline */
+ #define LUA_USE_STRTODHEX	/* assume 'strtod' handles hex formats */
+ #define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
+ #define LUA_USE_LONGLONG	/* assume support for long long */
+diff -Naur lua-5.2.4/src/Makefile lua-5.2.4-nr/src/Makefile
+--- lua-5.2.4/src/Makefile	2013-11-11 12:45:49.000000000 +0100
++++ lua-5.2.4-nr/src/Makefile	2020-06-05 10:02:13.144185076 +0200
+@@ -98,15 +98,15 @@
+ 	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_POSIX -DLUA_USE_DLOPEN" SYSLIBS="-Wl,-E"
+ 
+ freebsd:
+-	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E -lreadline"
++	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E"
+ 
+ generic: $(ALL)
+ 
+ linux:
+-	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E -ldl -lreadline"
++	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E -ldl"
+ 
+ macosx:
+-	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_MACOSX" SYSLIBS="-lreadline" CC=cc
++	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_MACOSX" SYSLIBS="" CC=cc
+ 
+ mingw:
+ 	$(MAKE) "LUA_A=lua52.dll" "LUA_T=lua.exe" \
