@@ -7,6 +7,10 @@ if [ -z "${PLATFORM_SHORT-}" ]; then
 	>&2 echo "PLATFORM_SHORT not set" 
 	exit 1
 fi
+if [ -z "${STATIC_DYNAMIC-}" ]; then
+	>&2 echo "STATIC_DYNAMIC not set" 
+	exit 1
+fi
 
 temp_base=temp
 
@@ -33,10 +37,11 @@ BUILD_INIT_BAT
 fi
 
 platform=${PLATFORM_SHORT}64
-zip_root=tpt-libs-prebuilt-$platform-static
-zip_out=$temp_base/static.zip
+dynstat=${STATIC_DYNAMIC}
+zip_root=tpt-libs-prebuilt-$platform-$dynstat
+zip_out=$temp_base/libraries.zip
 includes_root=include
-libs_root=static-$platform
+libs_root=$dynstat-$platform
 
 make=$'make\t-j2'
 includes=../../../$temp_base/$zip_root/$includes_root
@@ -46,7 +51,7 @@ get_and_cd() {
 	mkdir $temp_base/lib
 	cd $temp_base/lib
 	tarball=../../tarballs/$1
-	patch=../../patches/$platform/$1.patch
+	patch=../../patches/$platform-$dynstat/$1.patch
 	# note that the sha256 sums in this script are only for checking integrity
 	# (i.e. forcing the script to break in a predictable way if something
 	# changes upstream), not for cryptographic verification; there is of course
@@ -55,7 +60,7 @@ get_and_cd() {
 	echo $2 $tarball | sha256sum -c
 	tar xzf $tarball
 	if [ -f $patch ]; then
-		patch -p0 < $patch
+		patch -p0 -i $patch
 	fi
 	cd *
 }
@@ -69,8 +74,18 @@ compile_zlib() {
 	# acquired from https://zlib.net/zlib-1.2.11.tar.gz
 	get_and_cd zlib-1.2.11.tar.gz c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1
 	if [ $PLATFORM_SHORT == "win" ]; then
-		nmake -f win32/Makefile.msc zlib.lib
-		cp zlib.lib $libs/z.lib
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_target=zlib.lib
+		else
+			dynstat_target=zlib1.dll
+		fi
+		nmake -f win32/Makefile.msc $dynstat_target
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			cp zlib.lib $libs/z.lib
+		else
+			cp zdll.lib $libs/z.lib
+			cp zlib1.dll $libs
+		fi
 	else
 		./configure --static
 		$make
@@ -86,10 +101,18 @@ compile_fftw() {
 	if [ $PLATFORM_SHORT == "win" ]; then
 		mkdir build
 		cd build
-		cmake -A x64 -DBUILD_SHARED_LIBS=off -DDISABLE_FORTRAN=on -DENABLE_FLOAT=on -DENABLE_SSE=on -DENABLE_SSE2=on ..
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options="-DBUILD_SHARED_LIBS=off"
+		else
+			dynstat_options=
+		fi
+		cmake -A x64 $dynstat_options -DDISABLE_FORTRAN=on -DENABLE_FLOAT=on -DENABLE_SSE=on -DENABLE_SSE2=on ..
 		cmake --build . --config Release
 		cd ..
 		cp build/Release/fftw3f.lib $libs
+		if [ $STATIC_DYNAMIC == "dynamic" ]; then
+			cp build/Release/fftw3f.dll $libs
+		fi
 	else
 		./configure \
 			--build=`./config.guess` \
@@ -113,11 +136,21 @@ compile_lua51() {
 	# acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	get_and_cd lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
 	if [ $PLATFORM_SHORT == "win" ]; then
-		meson -Dbuildtype=release -Db_vscrt=mt build
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options="-Db_vscrt=mt"
+		else
+			dynstat_options=
+		fi
+		meson -Dbuildtype=release $dynstat_options build
 		cd build
 		ninja
 		cd ..
-		cp build/liblua5.1.a $libs/lua5.1.lib
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			cp build/liblua5.1.a $libs/lua5.1.lib
+		else
+			cp build/lua5.1.lib $libs/lua5.1.lib
+			cp build/lua5.1.dll $libs
+		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
 			lua_plat=linux
@@ -137,11 +170,21 @@ compile_lua52() {
 	# acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	get_and_cd lua-5.2.4.tar.gz b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b
 	if [ $PLATFORM_SHORT == "win" ]; then
-		meson -Dbuildtype=release -Db_vscrt=mt build
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options="-Db_vscrt=mt"
+		else
+			dynstat_options=
+		fi
+		meson -Dbuildtype=release $dynstat_options build
 		cd build
 		ninja
 		cd ..
-		cp build/liblua5.2.a $libs/lua5.2.lib
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			cp build/liblua5.2.a $libs/lua5.2.lib
+		else
+			cp build/lua5.2.lib $libs/lua5.2.lib
+			cp build/lua5.2.dll $libs
+		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
 			lua_plat=linux
@@ -162,9 +205,17 @@ compile_luajit() {
 	get_and_cd LuaJIT-2.1.0-beta3.tar.gz 1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3
 	if [ $PLATFORM_SHORT == "win" ]; then
 		cd src
-		./msvcbuild.bat static
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options=static
+		else
+			dynstat_options=
+		fi
+		./msvcbuild.bat $dynstat_options
 		cd ..
-		cp src/lua51.lib $libs/luajit.lib
+		cp src/luajit21.lib $libs
+		if [ $STATIC_DYNAMIC == "dynamic" ]; then
+			cp src/luajit21.dll $libs
+		fi
 	else
 		luajit_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
@@ -183,9 +234,19 @@ compile_curl() {
 	get_and_cd curl-7.68.0.tar.gz 1dd7604e418b0b9a9077f62f763f6684c1b092a7bc17e3f354b8ad5c964d7358
 	if [ $PLATFORM_SHORT == "win" ]; then
 		cd winbuild
-		nmake -f Makefile.vc mode=static ENABLE_IDN=no DEBUG=no MACHINE=x64 RTLIBCFG=static
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options=$'mode=static\tRTLIBCFG=static'
+		else
+			dynstat_options="mode=dll"
+		fi
+		nmake -f Makefile.vc $dynstat_options ENABLE_IDN=no DEBUG=no MACHINE=x64
 		cd ..
-		cp builds/libcurl-vc-x64-release-static-ipv6-sspi-winssl/lib/libcurl_a.lib $libs/curl.lib
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			cp builds/libcurl-vc-x64-release-static-ipv6-sspi-winssl/lib/libcurl_a.lib $libs/curl.lib
+		else
+			cp builds/libcurl-vc-x64-release-dll-ipv6-sspi-winssl/lib/libcurl.lib $libs/curl.lib
+			cp builds/libcurl-vc-x64-release-dll-ipv6-sspi-winssl/bin/libcurl.dll $libs
+		fi
 	else
 		curl_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
@@ -222,10 +283,24 @@ compile_sdl2() {
 	if [ $PLATFORM_SHORT == "win" ]; then
 		mkdir build
 		cd build
-		cmake -A x64 -DFORCE_STATIC_VCRT=ON -DBUILD_SHARED_LIBS=OFF -DSDL_AUDIO=OFF -DSDL_HAPTIC=OFF -DSDL_JOYSTICK=OFF -DSDL_POWER=OFF -DHIDAPI=OFF ..
+		if [ $STATIC_DYNAMIC == "static" ]; then
+			dynstat_options=$'-DFORCE_STATIC_VCRT=ON\t-DBUILD_SHARED_LIBS=OFF'
+		else
+			dynstat_options=
+		fi
+		cmake -A x64 $dynstat_options \
+			-DSDL_AUDIO=OFF \
+			-DSDL_HAPTIC=OFF \
+			-DSDL_JOYSTICK=OFF \
+			-DSDL_POWER=OFF \
+			-DHIDAPI=OFF \
+			..
 		cmake --build . --config Release
 		cd ..
 		cp build/Release/SDL2.lib build/Release/SDL2main.lib $libs
+		if [ $STATIC_DYNAMIC == "dynamic" ]; then
+			cp build/Release/SDL2.dll $libs
+		fi
 	else
 		./configure \
 			--build=`build-scripts/config.guess` \
@@ -243,7 +318,10 @@ compile_sdl2() {
 	uncd_and_unget
 }
 
-cp -r zip_stub/$platform $temp_base/$zip_root
+cd $temp_base
+7z x ../zip_stub/$platform-$dynstat.zip
+mv $platform-$dynstat $zip_root
+cd ..
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 

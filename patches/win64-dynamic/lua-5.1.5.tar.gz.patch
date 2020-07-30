@@ -1,0 +1,40 @@
+diff -Naur lua-5.1.5/meson.build lua-5.1.5-mn/meson.build
+--- lua-5.1.5/meson.build	1970-01-01 01:00:00.000000000 +0100
++++ lua-5.1.5-mn/meson.build	2020-07-28 13:41:57.410672800 +0200
+@@ -0,0 +1,36 @@
++project('tpt-libs-win64-lua5.1', 'c')
++
++shared_library(
++	'lua5.1', c_args: ['-DLUA_BUILD_AS_DLL'],
++	sources: files(
++		'src/lapi.c',
++		'src/lauxlib.c',
++		'src/lbaselib.c',
++		'src/lcode.c',
++		'src/ldblib.c',
++		'src/ldebug.c',
++		'src/ldo.c',
++		'src/ldump.c',
++		'src/lfunc.c',
++		'src/lgc.c',
++		'src/linit.c',
++		'src/liolib.c',
++		'src/llex.c',
++		'src/lmathlib.c',
++		'src/lmem.c',
++		'src/loadlib.c',
++		'src/lobject.c',
++		'src/lopcodes.c',
++		'src/loslib.c',
++		'src/lparser.c',
++		'src/lstate.c',
++		'src/lstring.c',
++		'src/lstrlib.c',
++		'src/ltable.c',
++		'src/ltablib.c',
++		'src/ltm.c',
++		'src/lundump.c',
++		'src/lvm.c',
++		'src/lzio.c',
++	)
++)
