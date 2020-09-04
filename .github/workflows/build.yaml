@@ -28,20 +28,20 @@ jobs:
     needs: [release]
     strategy:
       matrix:
+        platform_short: [lin, mac, win]
         static_dynamic: [static, dynamic]
-        os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
-          - os: ubuntu-latest
+          - platform_short: lin
             static_dynamic: dynamic
-          - os: macos-latest
+          - platform_short: mac
             static_dynamic: dynamic
         include:
-          - os: ubuntu-latest
-            platform_short: lin
-          - os: macos-latest
-            platform_short: mac
-          - os: windows-latest
-            platform_short: win
+          - platform_short: lin
+            os: ubuntu-latest
+          - platform_short: mac
+            os: macos-latest
+          - platform_short: win
+            os: windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v1
