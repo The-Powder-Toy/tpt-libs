@@ -253,22 +253,31 @@ compile_curl() {
 			curl_plat=--with-darwinssl
 		fi
 		./configure $curl_plat \
-			--disable-shared \
-			--disable-ftp \
-			--disable-telnet \
-			--disable-smtp \
-			--disable-imap \
-			--disable-pop3 \
-			--disable-smb \
-			--disable-gopher \
+			--enable-http \
+			--enable-ipv6 \
+			--enable-proxy \
 			--disable-dict \
 			--disable-file \
-			--disable-tftp \
-			--disable-rtsp \
+			--disable-ftp \
+			--disable-gopher \
+			--disable-imap \
 			--disable-ldap \
+			--disable-pop3 \
+			--disable-rtsp \
+			--disable-shared \
+			--disable-smb \
+			--disable-smtp \
+			--disable-sspi \
+			--disable-telnet \
+			--disable-tftp \
+			--without-brotli \
 			--without-libidn2 \
 			--without-librtmp \
-			--without-brotli
+			--without-nghttp2 \
+			--without-nghttp3 \
+			--without-ngtcp2 \
+			--without-quiche \
+			--without-winidn
 		$make
 		cp lib/.libs/libcurl.a $libs
 	fi
