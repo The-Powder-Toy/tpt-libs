@@ -327,10 +327,7 @@ compile_sdl2() {
 	uncd_and_unget
 }
 
-cd $temp_base
-7z x ../zip_stub/$platform-$dynstat.zip
-mv $platform-$dynstat $zip_root
-cd ..
+cp -r zip_stub/$platform-$dynstat $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
