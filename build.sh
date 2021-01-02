@@ -3,14 +3,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [ -z "${PLATFORM_SHORT-}" ]; then
-	>&2 echo "PLATFORM_SHORT not set" 
-	exit 1
-fi
-if [ -z "${STATIC_DYNAMIC-}" ]; then
-	>&2 echo "STATIC_DYNAMIC not set" 
-	exit 1
-fi
+. common.sh
 
 temp_base=temp
 
@@ -36,8 +29,6 @@ BUILD_INIT_BAT
 	exit 0
 fi
 
-platform=${PLATFORM_SHORT}64
-dynstat=${STATIC_DYNAMIC}
 zip_root=tpt-libs-prebuilt-$platform-$dynstat
 zip_out=$temp_base/libraries.zip
 includes_root=include
@@ -47,32 +38,8 @@ make=$'make\t-j2'
 includes=../../../$temp_base/$zip_root/$includes_root
 libs=../../../$temp_base/$zip_root/$libs_root
 
-get_and_cd() {
-	mkdir $temp_base/lib
-	cd $temp_base/lib
-	tarball=../../tarballs/$1
-	patch=../../patches/$platform-$dynstat/$1.patch
-	# note that the sha256 sums in this script are only for checking integrity
-	# (i.e. forcing the script to break in a predictable way if something
-	# changes upstream), not for cryptographic verification; there is of course
-	# no reason to validate the tarballs if they come right from the repo, but
-	# it is useful if you choose to not trust those and download ones yourself
-	echo $2 $tarball | sha256sum -c
-	tar xzf $tarball
-	if [ -f $patch ]; then
-		patch -p0 -i $patch
-	fi
-	cd *
-}
-
-uncd_and_unget() {
-	cd ../../..
-	rm -r $temp_base/lib
-}
-
 compile_zlib() {
-	# acquired from https://zlib.net/zlib-1.2.11.tar.gz
-	get_and_cd zlib-1.2.11.tar.gz c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1
+	get_and_cd zlib-1.2.11.tar.gz # acquired from https://zlib.net/zlib-1.2.11.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $STATIC_DYNAMIC == "static" ]; then
 			dynstat_target=zlib.lib
@@ -96,8 +63,7 @@ compile_zlib() {
 }
 
 compile_fftw() {
-	# acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
-	get_and_cd fftw-3.3.8.tar.gz 6113262f6e92c5bd474f2875fa1b01054c4ad5040f6b0da7c03c98821d9ae303
+	get_and_cd fftw-3.3.8.tar.gz # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
 	if [ $PLATFORM_SHORT == "win" ]; then
 		mkdir build
 		cd build
@@ -133,8 +99,7 @@ compile_fftw() {
 }
 
 compile_lua51() {
-	# acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
-	get_and_cd lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+	get_and_cd lua-5.1.5.tar.gz # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $STATIC_DYNAMIC == "static" ]; then
 			dynstat_options="-Db_vscrt=mt"
@@ -167,8 +132,7 @@ compile_lua51() {
 }
 
 compile_lua52() {
-	# acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
-	get_and_cd lua-5.2.4.tar.gz b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b
+	get_and_cd lua-5.2.4.tar.gz # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $STATIC_DYNAMIC == "static" ]; then
 			dynstat_options="-Db_vscrt=mt"
@@ -201,8 +165,7 @@ compile_lua52() {
 }
 
 compile_luajit() {
-	# acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
-	get_and_cd LuaJIT-2.1.0-beta3.tar.gz 1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3
+	get_and_cd LuaJIT-2.1.0-beta3.tar.gz # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		cd src
 		if [ $STATIC_DYNAMIC == "static" ]; then
@@ -230,8 +193,7 @@ compile_luajit() {
 }
 
 compile_curl() {
-	# acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
-	get_and_cd curl-7.68.0.tar.gz 1dd7604e418b0b9a9077f62f763f6684c1b092a7bc17e3f354b8ad5c964d7358
+	get_and_cd curl-7.68.0.tar.gz # acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		cd winbuild
 		if [ $STATIC_DYNAMIC == "static" ]; then
@@ -287,8 +249,7 @@ compile_curl() {
 }
 
 compile_sdl2() {
-	# acquired from https://www.libsdl.org/release/SDL2-2.0.10.tar.gz
-	get_and_cd SDL2-2.0.10.tar.gz b4656c13a1f0d0023ae2f4a9cf08ec92fffb464e0f24238337784159b8b91d57
+	get_and_cd SDL2-2.0.10.tar.gz # acquired from https://www.libsdl.org/release/SDL2-2.0.10.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		mkdir build
 		cd build
