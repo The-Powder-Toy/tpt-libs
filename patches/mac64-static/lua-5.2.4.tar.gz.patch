@@ -1,6 +1,6 @@
-diff -Naur lua-5.2.4/src/luaconf.h lua-5.2.4-nr/src/luaconf.h
---- lua-5.2.4/src/luaconf.h	2013-11-21 18:26:16.000000000 +0100
-+++ lua-5.2.4-nr/src/luaconf.h	2020-06-05 10:03:13.515305988 +0200
+diff -Naur patchtemp/lib.before/lua-5.2.4/src/luaconf.h patchtemp/lib.after/lua-5.2.4/src/luaconf.h
+--- patchtemp/lib.before/lua-5.2.4/src/luaconf.h	2013-11-21 18:26:16.000000000 +0100
++++ patchtemp/lib.after/lua-5.2.4/src/luaconf.h	2021-01-03 00:07:20.248638932 +0100
 @@ -43,7 +43,7 @@
  #if defined(LUA_USE_LINUX)
  #define LUA_USE_POSIX
@@ -19,9 +19,18 @@ diff -Naur lua-5.2.4/src/luaconf.h lua-5.2.4-nr/src/luaconf.h
  #define LUA_USE_STRTODHEX	/* assume 'strtod' handles hex formats */
  #define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
  #define LUA_USE_LONGLONG	/* assume support for long long */
-diff -Naur lua-5.2.4/src/Makefile lua-5.2.4-nr/src/Makefile
---- lua-5.2.4/src/Makefile	2013-11-11 12:45:49.000000000 +0100
-+++ lua-5.2.4-nr/src/Makefile	2020-06-05 10:02:13.144185076 +0200
+diff -Naur patchtemp/lib.before/lua-5.2.4/src/Makefile patchtemp/lib.after/lua-5.2.4/src/Makefile
+--- patchtemp/lib.before/lua-5.2.4/src/Makefile	2013-11-11 12:45:49.000000000 +0100
++++ patchtemp/lib.after/lua-5.2.4/src/Makefile	2021-01-03 00:07:32.028662292 +0100
+@@ -6,7 +6,7 @@
+ # Your platform. See PLATS for possible values.
+ PLAT= none
+ 
+-CC= gcc
++CC= g++
+ CFLAGS= -O2 -Wall -DLUA_COMPAT_ALL $(SYSCFLAGS) $(MYCFLAGS)
+ LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
+ LIBS= -lm $(SYSLIBS) $(MYLIBS)
 @@ -98,15 +98,15 @@
  	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_POSIX -DLUA_USE_DLOPEN" SYSLIBS="-Wl,-E"
  

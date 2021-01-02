@@ -1,11 +1,11 @@
-diff -Naur lua-5.1.5/meson.build lua-5.1.5-mn/meson.build
---- lua-5.1.5/meson.build	1970-01-01 01:00:00.000000000 +0100
-+++ lua-5.1.5-mn/meson.build	2020-07-28 13:41:57.410672800 +0200
-@@ -0,0 +1,36 @@
+diff -Naur patchtemp/lib.before/lua-5.1.5/meson.build patchtemp/lib.after/lua-5.1.5/meson.build
+--- patchtemp/lib.before/lua-5.1.5/meson.build	1970-01-01 01:00:00.000000000 +0100
++++ patchtemp/lib.after/lua-5.1.5/meson.build	2021-01-03 00:45:28.609287172 +0100
+@@ -0,0 +1,37 @@
 +project('tpt-libs-win64-lua5.1', 'c')
 +
 +shared_library(
-+	'lua5.1', c_args: ['-DLUA_BUILD_AS_DLL'],
++	'lua5.1',
 +	sources: files(
 +		'src/lapi.c',
 +		'src/lauxlib.c',
@@ -36,5 +36,6 @@ diff -Naur lua-5.1.5/meson.build lua-5.1.5-mn/meson.build
 +		'src/lundump.c',
 +		'src/lvm.c',
 +		'src/lzio.c',
-+	)
++	),
++	c_args: [ '-DLUA_BUILD_AS_DLL', '/TP' ] # msvc "it's actually all C++" flag
 +)
