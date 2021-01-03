@@ -1,14 +1,17 @@
 if [ -z "${PLATFORM_SHORT-}" ]; then
-	>&2 echo "PLATFORM_SHORT not set (lin, mac, win)" 
+	>&2 echo "PLATFORM_SHORT not set (lin, mac, win)"
 	exit 1
 fi
 if [ -z "${STATIC_DYNAMIC-}" ]; then
-	>&2 echo "STATIC_DYNAMIC not set (static, dynamic)" 
+	>&2 echo "STATIC_DYNAMIC not set (static, dynamic)"
 	exit 1
 fi
 
 platform=${PLATFORM_SHORT}64
 dynstat=${STATIC_DYNAMIC}
+zip_root=tpt-libs-prebuilt-$platform-$dynstat
+zip_out=$temp_base/libraries.zip
+wrap_out=$temp_base/libraries.wrap
 
 tarball_hash() {
 	case $1 in

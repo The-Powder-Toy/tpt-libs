@@ -44,6 +44,9 @@ jobs:
             os: windows-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - id: get_vtag
+        run: python ./.github/get-vtag.py ${{ github.ref }}
       - uses: actions/download-artifact@v1
         with:
           name: release_url
@@ -52,15 +55,23 @@ jobs:
       - if: matrix.os == 'macos-latest'
         run: brew install coreutils
       - if: matrix.os == 'windows-latest'
-        uses: actions/setup-python@v2
-      - if: matrix.os == 'windows-latest'
         run: python -m pip install meson ninja
-      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} ./build.sh'
-      - uses: actions/upload-release-asset@v1
+      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
+      - id: upload_release_asset
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_release_info.outputs.upload_url }}
           asset_path: temp/libraries.zip
-          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}.zip
+          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
+          asset_content_type: application/zip
+      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: temp/libraries.wrap
+          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.wrap
           asset_content_type: application/zip

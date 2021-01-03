@@ -3,9 +3,14 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+temp_base=temp
+
 . common.sh
 
-temp_base=temp
+if [ -z "${VTAG-}" ]; then
+	>&2 echo "VTAG not set (see .github/workflows/build.yaml)"
+	exit 1
+fi
 
 if [ -z "${build_sh_init-}" ]; then
 	if [ -d $temp_base ]; then
@@ -29,8 +34,6 @@ BUILD_INIT_BAT
 	exit 0
 fi
 
-zip_root=tpt-libs-prebuilt-$platform-$dynstat
-zip_out=$temp_base/libraries.zip
 includes_root=include
 libs_root=$dynstat-$platform
 
@@ -301,4 +304,5 @@ compile_lua51
 compile_lua52
 
 cd $temp_base
-7z a ../$zip_out $zip_root
+mv $zip_root $zip_root-$VTAG
+7z a ../$zip_out $zip_root-$VTAG
