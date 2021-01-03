@@ -40,7 +40,7 @@ else
 endif
 
 foreach name, inv : lib_inv
-	library = cpp_compiler.find_library(inv[0], dirs: meson.current_source_dir() + '/static-win64/')
+	library = cpp_compiler.find_library(inv[0], dirs: join_paths(meson.current_source_dir(), 'static-win64'))
 	dependencies_of_library = []
 	foreach depname : inv[1]
 		dependencies_of_library += depname

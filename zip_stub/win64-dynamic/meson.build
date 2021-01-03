@@ -40,10 +40,10 @@ config_dlls = []
 foreach name, inv : lib_inv
 	set_variable(name + '_dep', declare_dependency(
 		include_directories: incdirs,
-		dependencies:cpp_compiler.find_library(inv[0], dirs: meson.current_source_dir() + '/dynamic-win64/')
+		dependencies:cpp_compiler.find_library(inv[0], dirs: join_paths(meson.current_source_dir(), 'dynamic-win64'))
 	))
 	if inv[1] != ''
-		config_dlls += [ [ files(meson.current_source_dir() + '/dynamic-win64/' + inv[1]), inv[1] ] ]
+		config_dlls += [ [ files(join_paths(meson.current_source_dir(), 'dynamic-win64', inv[1])), inv[1] ] ]
 	endif
 endforeach
 other_fl = []
