@@ -1,5 +1,5 @@
 if [ -z "${PLATFORM_SHORT-}" ]; then
-	>&2 echo "PLATFORM_SHORT not set (lin, mac, win)"
+	>&2 echo "PLATFORM_SHORT not set (lin, mac, win, mingw)"
 	exit 1
 fi
 if [ -z "${STATIC_DYNAMIC-}" ]; then

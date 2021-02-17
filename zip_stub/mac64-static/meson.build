@@ -7,7 +7,6 @@ uopt_ssl = get_option('ssl')
 lib_inv = {
 	'zlib'    : [ 'libz'       , [] ],
 	'sdl2'    : [ 'libSDL2'    , [ dependency('Cocoa'), dependency('IOKit'), dependency('CoreVideo'), dependency('Carbon'), dependency('Metal') ] ],
-	'sdl2main': [ 'libSDL2main', [] ],
 	'fftw'    : [ 'libfftw3f'  , [] ],
 	'libcurl' : [ 'libcurl'    , [ dependency('Security') ] ],
 	'lua52'   : [ 'liblua5.2'  , [] ],

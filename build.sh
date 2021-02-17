@@ -37,9 +37,20 @@ fi
 includes_root=include
 libs_root=$dynstat-$platform
 
-make=$'make\t-j2'
+make=$'make\t-j'
+if [ -z "${NPROC-}" ]; then
+	NPROC=`nproc`
+fi
+make="$make$NPROC"
 includes=../../../$temp_base/$zip_root/$includes_root
 libs=../../../$temp_base/$zip_root/$libs_root
+
+fix_makefile_shells() {
+	# because obviously it's more important to check if memcpy exists than to quote the shell properly
+	for i in `find . -name Makefile`; do
+		sed -i -s "s/\$(SHELL)/\"\$(SHELL)\"/" $i
+	done
+}
 
 compile_zlib() {
 	get_and_cd zlib-1.2.11.tar.gz # acquired from https://zlib.net/zlib-1.2.11.tar.gz
@@ -56,6 +67,9 @@ compile_zlib() {
 			cp zdll.lib $libs/z.lib
 			cp zlib1.dll $libs
 		fi
+	elif [ $PLATFORM_SHORT == "mingw" ]; then
+		make -f win32/Makefile.gcc libz.a
+		cp libz.a $libs
 	else
 		./configure --static
 		$make
@@ -83,15 +97,20 @@ compile_fftw() {
 			cp build/Release/fftw3f.dll $libs
 		fi
 	else
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			build_for=x86_64-pc-mingw64
+		else
+			build_for=`./config.guess`
+		fi
 		./configure \
-			--build=`./config.guess` \
+			--build=$build_for \
 			--disable-shared \
 			--enable-static \
+			--enable-portable-binary \
 			--disable-alloca \
 			--with-our-malloc16 \
 			--disable-threads \
 			--disable-fortran \
-			--enable-portable-binary \
 			--enable-float \
 			--enable-sse
 		$make
@@ -126,6 +145,9 @@ compile_lua51() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			lua_plat=mingw
+		fi
 		$make PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
 		cp src/liblua5.1.a $libs
 	fi
@@ -159,6 +181,9 @@ compile_lua52() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			lua_plat=mingw
+		fi
 		$make PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
 		cp src/liblua5.2.a $libs
 	fi
@@ -182,6 +207,11 @@ compile_luajit() {
 		if [ $STATIC_DYNAMIC == "dynamic" ]; then
 			cp src/luajit21.dll $libs
 		fi
+	elif [ $PLATFORM_SHORT == "mingw" ]; then
+		cd src
+		TARGET_SYS=Windows $make
+		cd ..
+		cp src/libluajit.a $libs
 	else
 		luajit_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
@@ -243,6 +273,9 @@ compile_curl() {
 			--without-ngtcp2 \
 			--without-quiche \
 			--without-winidn
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			fix_makefile_shells
+		fi
 		$make
 		cp lib/.libs/libcurl.a $libs
 	fi
@@ -270,21 +303,29 @@ compile_sdl2() {
 			..
 		cmake --build . --config Release
 		cd ..
-		cp build/Release/SDL2.lib build/Release/SDL2main.lib $libs
+		cp build/Release/SDL2.lib $libs
 		if [ $STATIC_DYNAMIC == "dynamic" ]; then
 			cp build/Release/SDL2.dll $libs
 		fi
 	else
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			build_for=x86_64-pc-mingw32
+		else
+			build_for=`./build-scripts/config.guess`
+		fi
 		./configure \
-			--build=`build-scripts/config.guess` \
+			--build=$build_for \
 			--disable-shared \
 			--disable-audio \
 			--disable-haptic \
 			--disable-joystick \
 			--disable-power \
 			--disable-hidapi
+		if [ $PLATFORM_SHORT == "mingw" ]; then
+			fix_makefile_shells
+		fi
 		$make
-		cp build/.libs/libSDL2.a build/.libs/libSDL2main.a $libs
+		cp build/.libs/libSDL2.a $libs
 	fi
 	mkdir $includes/SDL2
 	cp include/*.h $includes/SDL2
@@ -295,8 +336,8 @@ cp -r zip_stub/$platform-$dynstat $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
-compile_sdl2
 compile_curl
+compile_sdl2
 compile_fftw
 compile_zlib
 compile_luajit

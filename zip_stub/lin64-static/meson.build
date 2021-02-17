@@ -7,7 +7,6 @@ uopt_ssl = get_option('ssl')
 lib_inv = {
 	'zlib'    : [ 'libz'       , [] ],
 	'sdl2'    : [ 'libSDL2'    , [ cpp_compiler.find_library('dl') ] ],
-	'sdl2main': [ 'libSDL2main', [] ],
 	'fftw'    : [ 'libfftw3f'  , [] ],
 	'libcurl' : [ 'libcurl'    , [ dependency(uopt_ssl) ] ],
 	'lua52'   : [ 'liblua5.2'  , [] ],

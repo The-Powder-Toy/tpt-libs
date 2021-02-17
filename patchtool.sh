@@ -83,7 +83,9 @@ write)
 	diffcode=$?
 	set -e
 	[ $diffcode = 0 ] || [ $diffcode = 1 ]
-	rm $patch_path
+	if [ -f $patch_path ]; then
+		rm $patch_path
+	fi
 	mv .diff $patch_path
 	if [ $diffcode = 1 ]; then
 		>&2 echo "written diff to $patch_path"
@@ -112,7 +114,7 @@ Usage: $0 help
 
 Explanation of the verbs above:
   - help: Show this help.
-  - start TARBALL: Start a patch session with TARBALL (pick one from tarballs/). This will apply the diff in the corresponding patch file, if one exists.
+  - start TARBALL: Start a patch session with TARBALL (pick one from tarballs/). You will also need to set the PLATFORM_SHORT and STATIC_DYNAMIC environment variables (run this command without setting them to show possible values). This will apply the diff in the corresponding patch file, if one exists.
   - info: If a patch session is in progress, show settings.
   - show: If a patch session is in progress, show the diff.
   - write: If a patch session is in progress, Write the diff back to (or remove, in case of an empty diff) the corresponding patch file, which is version-controlled.

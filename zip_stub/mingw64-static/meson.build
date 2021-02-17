@@ -1,16 +1,16 @@
-project('tpt-libs-prebuilt-win64-dynamic', ['c', 'cpp'])
+project('tpt-libs-prebuilt-mingw64-static', ['c', 'cpp'])
 
 cpp_compiler = meson.get_compiler('cpp')
 uopt_lua = get_option('lua')
 
 lib_inv = {
-	'zlib'    : [ 'z'       , 'zlib1.dll'       ],
-	'sdl2'    : [ 'SDL2'    , 'SDL2.dll'        ],
-	'fftw'    : [ 'fftw3f'  , 'fftw3f.dll' ],
-	'libcurl' : [ 'curl'    , 'libcurl.dll'     ],
-	'lua52'   : [ 'lua5.2'  , 'lua5.2.dll'      ],
-	'lua51'   : [ 'lua5.1'  , 'lua5.1.dll'      ],
-	'luajit'  : [ 'luajit21', 'luajit21.dll'    ],
+	'zlib'    : [ 'z'     , [] ],
+	'sdl2'    : [ 'SDL2'  , [] ],
+	'fftw'    : [ 'fftw3f', [] ],
+	'libcurl' : [ 'curl'  , [] ],
+	'lua52'   : [ 'lua5.2', [] ],
+	'lua51'   : [ 'lua5.1', [] ],
+	'luajit'  : [ 'luajit', [] ],
 }
 other_libs = [
 	'shell32',
@@ -22,6 +22,9 @@ other_libs = [
 	'crypt32',
 	'winmm',
 	'gdi32',
+	'Version',
+	'Imm32',
+	'Setupapi',
 ]
 
 incdirs = [ include_directories('include') ]
@@ -35,15 +38,16 @@ else
 	lua_opt_dep = []
 endif
 
-config_dlls = []
 foreach name, inv : lib_inv
+	library = cpp_compiler.find_library(inv[0], dirs: join_paths(meson.current_source_dir(), 'static-mingw64'))
+	dependencies_of_library = []
+	foreach depname : inv[1]
+		dependencies_of_library += depname
+	endforeach
 	set_variable(name + '_dep', declare_dependency(
 		include_directories: incdirs,
-		dependencies:cpp_compiler.find_library(inv[0], dirs: join_paths(meson.current_source_dir(), 'dynamic-win64'))
+		dependencies: [ library, dependencies_of_library ]
 	))
-	if inv[1] != ''
-		config_dlls += [ [ files(join_paths(meson.current_source_dir(), 'dynamic-win64', inv[1])), inv[1] ] ]
-	endif
 endforeach
 other_fl = []
 foreach name : other_libs

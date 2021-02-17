@@ -6,7 +6,6 @@ uopt_lua = get_option('lua')
 lib_inv = {
 	'zlib'    : [ 'z'       , [] ],
 	'sdl2'    : [ 'SDL2'    , [] ],
-	'sdl2main': [ 'SDL2main', [] ],
 	'fftw'    : [ 'fftw3f'  , [] ],
 	'libcurl' : [ 'curl'    , [] ],
 	'lua52'   : [ 'lua5.2'  , [] ],
