@@ -67,6 +67,8 @@ jobs:
         run: brew install coreutils
       - if: matrix.platform_short == 'win'
         run: python -m pip install meson ninja
+      - if: matrix.platform_short == 'lin'
+        run: sudo apt install libibus-1.0-dev libdbus-1-dev fcitx-libs-dev
       - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         id: upload_release_asset
@@ -83,7 +85,8 @@ jobs:
         with:
           path: temp/libraries.zip
           name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
-      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
+      - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-release-asset@v1
         env:
@@ -96,5 +99,5 @@ jobs:
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v2
         with:
-          path: temp/libraries.wrap
-          name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.wrap
+          path: temp/libraries.zip
+          name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
