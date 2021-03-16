@@ -33,23 +33,52 @@ jobs:
     needs: [release]
     strategy:
       matrix:
-        platform_short: [lin, mac, win, mingw]
+#               | lin-x86_64 | mac-x86_64 | win-x86_64 |  lin-i686  |  mac-i686  |  win-i686  |
+# --------------+------------+------------+------------+------------+------------+------------+
+# gcc-static    |            |            |     NO     |     NO     |     NO     |     NO     |
+# msvc-static   |     NO     |     NO     |            |     NO     |     NO     |            |
+# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |   NO [1]   |
+# gcc-dynamic   |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |
+# msvc-dynamic  |     NO     |     NO     |            |     NO     |     NO     |            |
+# mingw-dynamic |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |
+#
+# [1] I don't currently care enough about mingw to figure out how to do this.
+        platform_short: [lin, mac, win]
+        toolset_short: [gcc, msvc, mingw]
+        machine_short: [x86_64, i686]
         static_dynamic: [static, dynamic]
         exclude:
-         - platform_short: lin
-           static_dynamic: dynamic
-         - platform_short: mac
-           static_dynamic: dynamic
-         - platform_short: mingw
-           static_dynamic: dynamic
+          - toolset_short: gcc
+            static_dynamic: dynamic
+          - toolset_short: mingw
+            static_dynamic: dynamic
+          - platform_short: lin
+            machine_short: i686
+          - platform_short: mac
+            machine_short: i686
+          - platform_short: win
+            toolset_short: gcc
+          - platform_short: lin
+            toolset_short: msvc
+          - platform_short: mac
+            toolset_short: msvc
+          - static_dynamic: static
+            toolset_short: mingw
+            platform_short: lin
+          - static_dynamic: static
+            toolset_short: mingw
+            platform_short: mac
+          - static_dynamic: static
+            toolset_short: mingw
+            platform_short: win
+            machine_short: i686
+          - toolset_short: mingw # Temporary, until I figured out how to get MinGW builds to work.
         include:
           - platform_short: lin
             os: ubuntu-latest
           - platform_short: mac
             os: macos-latest
           - platform_short: win
-            os: windows-latest
-          - platform_short: mingw
             os: windows-latest
     steps:
       - uses: actions/checkout@v2
@@ -69,7 +98,7 @@ jobs:
         run: python -m pip install meson ninja
       - if: matrix.platform_short == 'lin'
         run: sudo apt install libibus-1.0-dev libdbus-1-dev fcitx-libs-dev
-      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
+      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} MACHINE_SHORT=${{ matrix.machine_short }} TOOLSET_SHORT=${{ matrix.toolset_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         id: upload_release_asset
         uses: actions/upload-release-asset@v1
@@ -78,15 +107,15 @@ jobs:
         with:
           upload_url: ${{ steps.get_release_info.outputs.upload_url }}
           asset_path: temp/libraries.zip
-          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
+          asset_name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
           asset_content_type: application/zip
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v2
         with:
           path: temp/libraries.zip
-          name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
+          name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
+        run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} MACHINE_SHORT=${{ matrix.machine_short }} TOOLSET_SHORT=${{ matrix.toolset_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-release-asset@v1
         env:
@@ -94,10 +123,10 @@ jobs:
         with:
           upload_url: ${{ steps.get_release_info.outputs.upload_url }}
           asset_path: temp/libraries.wrap
-          asset_name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.wrap
+          asset_name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.wrap
           asset_content_type: application/zip
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v2
         with:
           path: temp/libraries.zip
-          name: tpt-libs-prebuilt-${{ matrix.platform_short }}64-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
+          name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip

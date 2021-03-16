@@ -35,14 +35,18 @@ start)
 	cd ../../..
 	mv $lib_path_common $lib_path_after
 
-	patch_path=patches/$platform-$dynstat/$patchtool_tarball.patch
+	patch_path=patches/$quad/$patchtool_tarball.patch
 
-	echo "lib_path_common=$lib_path_common" >> $temp_base/$patchinfo
-	echo "lib_path_before=$lib_path_before" >> $temp_base/$patchinfo
-	echo "lib_path_after=$lib_path_after"   >> $temp_base/$patchinfo
-	echo "patch_path=$patch_path"           >> $temp_base/$patchinfo
-	echo "PLATFORM_SHORT=$PLATFORM_SHORT"   >> $temp_base/$patchinfo
-	echo "STATIC_DYNAMIC=$STATIC_DYNAMIC"   >> $temp_base/$patchinfo
+	cat << DOT_PATCHINFO > $temp_base/$patchinfo
+lib_path_common=${lib_path_common}
+lib_path_before=${lib_path_before}
+lib_path_after=${lib_path_after}
+patch_path=${patch_path}
+PLATFORM_SHORT=${PLATFORM_SHORT}
+MACHINE_SHORT=${MACHINE_SHORT}
+TOOLSET_SHORT=${TOOLSET_SHORT}
+STATIC_DYNAMIC=${STATIC_DYNAMIC}
+DOT_PATCHINFO
 	;;
 
 info)
@@ -114,7 +118,7 @@ Usage: $0 help
 
 Explanation of the verbs above:
   - help: Show this help.
-  - start TARBALL: Start a patch session with TARBALL (pick one from tarballs/). You will also need to set the PLATFORM_SHORT and STATIC_DYNAMIC environment variables (run this command without setting them to show possible values). This will apply the diff in the corresponding patch file, if one exists.
+  - start TARBALL: Start a patch session with TARBALL (pick one from tarballs/). You will also need to set the PLATFORM_SHORT, MACHINE_SHORT, TOOLSET_SHORT and STATIC_DYNAMIC environment variables (run this command without setting them to show possible values). This will apply the diff in the corresponding patch file, if one exists.
   - info: If a patch session is in progress, show settings.
   - show: If a patch session is in progress, show the diff.
   - write: If a patch session is in progress, Write the diff back to (or remove, in case of an empty diff) the corresponding patch file, which is version-controlled.

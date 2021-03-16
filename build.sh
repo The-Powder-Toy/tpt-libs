@@ -22,9 +22,14 @@ if [ -z "${build_sh_init-}" ]; then
 		for i in C:/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
 			vcvarsall_path=$i
 		done
+		if [ $MACHINE_SHORT == "x86_64" ]; then
+			x64_x86=x64
+		else
+			x64_x86=x86
+		fi
 		cat << BUILD_INIT_BAT > $temp_base/build_init.bat
 @echo off
-call "${vcvarsall_path}" x64
+call "${vcvarsall_path}" ${x64_x86}
 bash -c 'build_sh_init=1 ./build.sh'
 BUILD_INIT_BAT
 		./$temp_base/build_init.bat
@@ -35,7 +40,7 @@ BUILD_INIT_BAT
 fi
 
 includes_root=include
-libs_root=$dynstat-$platform
+libs_root=lib
 
 make=$'make\t-j'
 if [ -z "${NPROC-}" ]; then
@@ -55,21 +60,23 @@ fix_makefile_shells() {
 compile_zlib() {
 	get_and_cd zlib-1.2.11.tar.gz # acquired from https://zlib.net/zlib-1.2.11.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_target=zlib.lib
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_target=zlib.lib
+			else
+				dynstat_target=zlib1.dll
+			fi
+			nmake -f win32/Makefile.msc $dynstat_target
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp zlib.lib $libs/z.lib
+			else
+				cp zdll.lib $libs/z.lib
+				cp zlib1.dll $libs
+			fi
 		else
-			dynstat_target=zlib1.dll
+			make -f win32/Makefile.gcc libz.a
+			cp libz.a $libs
 		fi
-		nmake -f win32/Makefile.msc $dynstat_target
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			cp zlib.lib $libs/z.lib
-		else
-			cp zdll.lib $libs/z.lib
-			cp zlib1.dll $libs
-		fi
-	elif [ $PLATFORM_SHORT == "mingw" ]; then
-		make -f win32/Makefile.gcc libz.a
-		cp libz.a $libs
 	else
 		./configure --static
 		$make
@@ -82,26 +89,44 @@ compile_zlib() {
 compile_fftw() {
 	get_and_cd fftw-3.3.8.tar.gz # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
 	if [ $PLATFORM_SHORT == "win" ]; then
-		mkdir build
-		cd build
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options="-DBUILD_SHARED_LIBS=off"
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			mkdir build
+			cd build
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options="-DBUILD_SHARED_LIBS=off"
+			else
+				dynstat_options=
+			fi
+			if [ $MACHINE_SHORT == "x86_64" ]; then
+				x64_x86=$'-A\tx64'
+			else
+				x64_x86=$'-A\tWin32'
+			fi
+			cmake $x64_x86 $dynstat_options -DDISABLE_FORTRAN=on -DENABLE_FLOAT=on -DENABLE_SSE=on -DENABLE_SSE2=on ..
+			cmake --build . --config Release
+			cd ..
+			cp build/Release/fftw3f.lib $libs
+			if [ $STATIC_DYNAMIC == "dynamic" ]; then
+				cp build/Release/fftw3f.dll $libs
+			fi
 		else
-			dynstat_options=
-		fi
-		cmake -A x64 $dynstat_options -DDISABLE_FORTRAN=on -DENABLE_FLOAT=on -DENABLE_SSE=on -DENABLE_SSE2=on ..
-		cmake --build . --config Release
-		cd ..
-		cp build/Release/fftw3f.lib $libs
-		if [ $STATIC_DYNAMIC == "dynamic" ]; then
-			cp build/Release/fftw3f.dll $libs
+			build_for=x86_64-pc-mingw64
+			./configure \
+				--build=$build_for \
+				--disable-shared \
+				--enable-static \
+				--enable-portable-binary \
+				--disable-alloca \
+				--with-our-malloc16 \
+				--disable-threads \
+				--disable-fortran \
+				--enable-float \
+				--enable-sse
+			$make
+			cp .libs/libfftw3f.a $libs
 		fi
 	else
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			build_for=x86_64-pc-mingw64
-		else
-			build_for=`./config.guess`
-		fi
+		build_for=`./config.guess`
 		./configure \
 			--build=$build_for \
 			--disable-shared \
@@ -123,20 +148,25 @@ compile_fftw() {
 compile_lua51() {
 	get_and_cd lua-5.1.5.tar.gz # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options="-Db_vscrt=mt"
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options="-Db_vscrt=mt"
+			else
+				dynstat_options=
+			fi
+			meson -Dbuildtype=release $dynstat_options build
+			cd build
+			ninja
+			cd ..
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp build/liblua5.1.a $libs/lua5.1.lib
+			else
+				cp build/lua5.1.lib $libs/lua5.1.lib
+				cp build/lua5.1.dll $libs
+			fi
 		else
-			dynstat_options=
-		fi
-		meson -Dbuildtype=release $dynstat_options build
-		cd build
-		ninja
-		cd ..
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			cp build/liblua5.1.a $libs/lua5.1.lib
-		else
-			cp build/lua5.1.lib $libs/lua5.1.lib
-			cp build/lua5.1.dll $libs
+			$make PLAT=mingw LUA_A="liblua5.1.a" mingw
+			cp src/liblua5.1.a $libs
 		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
@@ -144,9 +174,6 @@ compile_lua51() {
 		fi
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
-		fi
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			lua_plat=mingw
 		fi
 		$make PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
 		cp src/liblua5.1.a $libs
@@ -159,20 +186,25 @@ compile_lua51() {
 compile_lua52() {
 	get_and_cd lua-5.2.4.tar.gz # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options="-Db_vscrt=mt"
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options="-Db_vscrt=mt"
+			else
+				dynstat_options=
+			fi
+			meson -Dbuildtype=release $dynstat_options build
+			cd build
+			ninja
+			cd ..
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp build/liblua5.2.a $libs/lua5.2.lib
+			else
+				cp build/lua5.2.lib $libs/lua5.2.lib
+				cp build/lua5.2.dll $libs
+			fi
 		else
-			dynstat_options=
-		fi
-		meson -Dbuildtype=release $dynstat_options build
-		cd build
-		ninja
-		cd ..
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			cp build/liblua5.2.a $libs/lua5.2.lib
-		else
-			cp build/lua5.2.lib $libs/lua5.2.lib
-			cp build/lua5.2.dll $libs
+			$make PLAT=mingw LUA_A="liblua5.2.a" mingw
+			cp src/liblua5.2.a $libs
 		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
@@ -180,9 +212,6 @@ compile_lua52() {
 		fi
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
-		fi
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			lua_plat=mingw
 		fi
 		$make PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
 		cp src/liblua5.2.a $libs
@@ -195,23 +224,25 @@ compile_lua52() {
 compile_luajit() {
 	get_and_cd LuaJIT-2.1.0-beta3.tar.gz # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		cd src
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options=static
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			cd src
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=static
+			else
+				dynstat_options=
+			fi
+			./msvcbuild.bat $dynstat_options
+			cd ..
+			cp src/luajit21.lib $libs
+			if [ $STATIC_DYNAMIC == "dynamic" ]; then
+				cp src/luajit21.dll $libs
+			fi
 		else
-			dynstat_options=
+			cd src
+			TARGET_SYS=Windows $make
+			cd ..
+			cp src/libluajit.a $libs
 		fi
-		./msvcbuild.bat $dynstat_options
-		cd ..
-		cp src/luajit21.lib $libs
-		if [ $STATIC_DYNAMIC == "dynamic" ]; then
-			cp src/luajit21.dll $libs
-		fi
-	elif [ $PLATFORM_SHORT == "mingw" ]; then
-		cd src
-		TARGET_SYS=Windows $make
-		cd ..
-		cp src/libluajit.a $libs
 	else
 		luajit_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
@@ -228,19 +259,60 @@ compile_luajit() {
 compile_curl() {
 	get_and_cd curl-7.68.0.tar.gz # acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		cd winbuild
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options=$'mode=static\tRTLIBCFG=static'
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			cd winbuild
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=$'mode=static\tRTLIBCFG=static'
+			else
+				dynstat_options="mode=dll"
+			fi
+			if [ $MACHINE_SHORT == "x86_64" ]; then
+				x64_x86=x64
+			else
+				x64_x86=x86
+			fi
+			nmake -f Makefile.vc $dynstat_options ENABLE_IDN=no DEBUG=no MACHINE=$x64_x86
+			cd ..
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp builds/libcurl-vc-$x64_x86-release-static-ipv6-sspi-winssl/lib/libcurl_a.lib $libs/curl.lib
+			else
+				cp builds/libcurl-vc-$x64_x86-release-dll-ipv6-sspi-winssl/lib/libcurl.lib $libs/curl.lib
+				cp builds/libcurl-vc-$x64_x86-release-dll-ipv6-sspi-winssl/bin/libcurl.dll $libs
+			fi
 		else
-			dynstat_options="mode=dll"
-		fi
-		nmake -f Makefile.vc $dynstat_options ENABLE_IDN=no DEBUG=no MACHINE=x64
-		cd ..
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			cp builds/libcurl-vc-x64-release-static-ipv6-sspi-winssl/lib/libcurl_a.lib $libs/curl.lib
-		else
-			cp builds/libcurl-vc-x64-release-dll-ipv6-sspi-winssl/lib/libcurl.lib $libs/curl.lib
-			cp builds/libcurl-vc-x64-release-dll-ipv6-sspi-winssl/bin/libcurl.dll $libs
+			curl_plat=
+			if [ $PLATFORM_SHORT == "mac" ]; then
+				curl_plat=--with-darwinssl
+			fi
+			./configure $curl_plat \
+				--enable-http \
+				--enable-ipv6 \
+				--enable-proxy \
+				--disable-dict \
+				--disable-file \
+				--disable-ftp \
+				--disable-gopher \
+				--disable-imap \
+				--disable-ldap \
+				--disable-pop3 \
+				--disable-rtsp \
+				--disable-shared \
+				--disable-smb \
+				--disable-smtp \
+				--disable-sspi \
+				--disable-telnet \
+				--disable-tftp \
+				--without-brotli \
+				--without-libidn2 \
+				--without-librtmp \
+				--without-nghttp2 \
+				--without-nghttp3 \
+				--without-ngtcp2 \
+				--without-quiche \
+				--without-winidn
+			fix_makefile_shells
+			$make
+			cp lib/.libs/libcurl.a $libs
 		fi
 	else
 		curl_plat=
@@ -273,9 +345,6 @@ compile_curl() {
 			--without-ngtcp2 \
 			--without-quiche \
 			--without-winidn
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			fix_makefile_shells
-		fi
 		$make
 		cp lib/.libs/libcurl.a $libs
 	fi
@@ -287,32 +356,48 @@ compile_curl() {
 compile_sdl2() {
 	get_and_cd SDL2-2.0.10.tar.gz # acquired from https://www.libsdl.org/release/SDL2-2.0.10.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
-		mkdir build
-		cd build
-		if [ $STATIC_DYNAMIC == "static" ]; then
-			dynstat_options=$'-DFORCE_STATIC_VCRT=ON\t-DBUILD_SHARED_LIBS=OFF'
+		if [ $TOOLSET_SHORT == "msvc" ]; then
+			mkdir build
+			cd build
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=$'-DFORCE_STATIC_VCRT=ON\t-DBUILD_SHARED_LIBS=OFF\t-DLIBC=ON'
+			else
+				dynstat_options=
+			fi
+			if [ $MACHINE_SHORT == "x86_64" ]; then
+				x64_x86=$'-A\tx64'
+			else
+				x64_x86=$'-A\tWin32'
+			fi
+			cmake $x64_x86 $dynstat_options \
+				-DSDL_AUDIO=OFF \
+				-DSDL_HAPTIC=OFF \
+				-DSDL_JOYSTICK=OFF \
+				-DSDL_POWER=OFF \
+				-DHIDAPI=OFF \
+				..
+			cmake --build . --config Release
+			cd ..
+			cp build/Release/SDL2.lib $libs
+			if [ $STATIC_DYNAMIC == "dynamic" ]; then
+				cp build/Release/SDL2.dll $libs
+			fi
 		else
-			dynstat_options=
-		fi
-		cmake -A x64 $dynstat_options \
-			-DSDL_AUDIO=OFF \
-			-DSDL_HAPTIC=OFF \
-			-DSDL_JOYSTICK=OFF \
-			-DSDL_POWER=OFF \
-			-DHIDAPI=OFF \
-			..
-		cmake --build . --config Release
-		cd ..
-		cp build/Release/SDL2.lib $libs
-		if [ $STATIC_DYNAMIC == "dynamic" ]; then
-			cp build/Release/SDL2.dll $libs
+			build_for=$MACHINE_SHORT-pc-mingw32
+			./configure \
+				--build=$build_for \
+				--disable-shared \
+				--disable-audio \
+				--disable-haptic \
+				--disable-joystick \
+				--disable-power \
+				--disable-hidapi
+			fix_makefile_shells
+			$make
+			cp build/.libs/libSDL2.a $libs
 		fi
 	else
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			build_for=x86_64-pc-mingw32
-		else
-			build_for=`./build-scripts/config.guess`
-		fi
+		build_for=`./build-scripts/config.guess`
 		./configure \
 			--build=$build_for \
 			--disable-shared \
@@ -321,9 +406,6 @@ compile_sdl2() {
 			--disable-joystick \
 			--disable-power \
 			--disable-hidapi
-		if [ $PLATFORM_SHORT == "mingw" ]; then
-			fix_makefile_shells
-		fi
 		$make
 		cp build/.libs/libSDL2.a $libs
 	fi
@@ -332,14 +414,14 @@ compile_sdl2() {
 	uncd_and_unget
 }
 
-cp -r zip_stub/$platform-$dynstat $temp_base/$zip_root
+cp -r zip_stub/$quad $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
+compile_zlib
 compile_curl
 compile_sdl2
 compile_fftw
-compile_zlib
 compile_luajit
 compile_lua51
 compile_lua52

@@ -1,5 +1,13 @@
 if [ -z "${PLATFORM_SHORT-}" ]; then
-	>&2 echo "PLATFORM_SHORT not set (lin, mac, win, mingw)"
+	>&2 echo "PLATFORM_SHORT not set (lin, mac, win)"
+	exit 1
+fi
+if [ -z "${MACHINE_SHORT-}" ]; then
+	>&2 echo "MACHINE_SHORT not set (x86_64, i686)"
+	exit 1
+fi
+if [ -z "${TOOLSET_SHORT-}" ]; then
+	>&2 echo "TOOLSET_SHORT not set (gcc, clang, mingw)"
 	exit 1
 fi
 if [ -z "${STATIC_DYNAMIC-}" ]; then
@@ -7,9 +15,8 @@ if [ -z "${STATIC_DYNAMIC-}" ]; then
 	exit 1
 fi
 
-platform=${PLATFORM_SHORT}64
-dynstat=${STATIC_DYNAMIC}
-zip_root=tpt-libs-prebuilt-$platform-$dynstat
+quad=${MACHINE_SHORT}-${PLATFORM_SHORT}-${TOOLSET_SHORT}-${STATIC_DYNAMIC}
+zip_root=tpt-libs-prebuilt-$quad
 zip_out=$temp_base/libraries.zip
 wrap_out=$temp_base/libraries.wrap
 
@@ -31,7 +38,7 @@ get_and_cd() {
 	mkdir $temp_base/lib
 	cd $temp_base/lib
 	tarball=../../tarballs/$1
-	patch=../../patches/$platform-$dynstat/$1.patch
+	patch=../../patches/$quad/$1.patch
 	# note that the sha256 sums in this script are only for checking integrity
 	# (i.e. forcing the script to break in a predictable way if something
 	# changes upstream), not for cryptographic verification; there is of course
