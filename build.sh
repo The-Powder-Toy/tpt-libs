@@ -42,6 +42,13 @@ fi
 includes_root=include
 libs_root=lib
 
+BSHCFLAGS=
+BSHLDFLAGS=
+if [ $PLATFORM_SHORT == "mac" ]; then
+	BSHCFLAGS=-mmacosx-version-min=10.9
+	BSHLDFLAGS=-mmacosx-version-min=10.9
+fi
+
 make=$'make\t-j'
 if [ -z "${NPROC-}" ]; then
 	NPROC=`nproc`
@@ -78,7 +85,7 @@ compile_zlib() {
 			cp libz.a $libs
 		fi
 	else
-		./configure --static
+		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
 		$make
 		cp libz.a $libs
 	fi
@@ -127,7 +134,7 @@ compile_fftw() {
 		fi
 	else
 		build_for=`./config.guess`
-		./configure \
+		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure \
 			--build=$build_for \
 			--disable-shared \
 			--enable-static \
@@ -175,7 +182,7 @@ compile_lua51() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
+		$make MYCFLAGS=$BSHCFLAGS MYLDFLAGS=$BSHLDFLAGS PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
 		cp src/liblua5.1.a $libs
 	fi
 	mkdir $includes/lua5.1
@@ -213,7 +220,7 @@ compile_lua52() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
+		$make MYCFLAGS=$BSHCFLAGS MYLDFLAGS=$BSHLDFLAGS PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
 		cp src/liblua5.2.a $libs
 	fi
 	mkdir $includes/lua5.2
@@ -248,7 +255,7 @@ compile_luajit() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			luajit_plat=MACOSX_DEPLOYMENT_TARGET=10.9
 		fi
-		$make $luajit_plat LUAJIT_SO=
+		$make CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS $luajit_plat LUAJIT_SO=
 		cp src/libluajit.a $libs
 	fi
 	mkdir $includes/luajit-2.1
@@ -319,7 +326,7 @@ compile_curl() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			curl_plat=--with-darwinssl
 		fi
-		./configure $curl_plat \
+		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $curl_plat \
 			--enable-http \
 			--enable-ipv6 \
 			--enable-proxy \
@@ -398,7 +405,7 @@ compile_sdl2() {
 		fi
 	else
 		build_for=`./build-scripts/config.guess`
-		./configure \
+		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure \
 			--build=$build_for \
 			--disable-shared \
 			--disable-audio \
