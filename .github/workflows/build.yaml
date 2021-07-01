@@ -75,7 +75,7 @@ jobs:
           - toolset_short: mingw # Temporary, until I figured out how to get MinGW builds to work.
         include:
           - platform_short: lin
-            os: ubuntu-latest
+            os: ubuntu-20.04
           - platform_short: mac
             os: macos-latest
           - platform_short: win
