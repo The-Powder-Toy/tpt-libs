@@ -7,7 +7,7 @@ if [ -z "${MACHINE_SHORT-}" ]; then
 	exit 1
 fi
 if [ -z "${TOOLSET_SHORT-}" ]; then
-	>&2 echo "TOOLSET_SHORT not set (gcc, clang, mingw)"
+	>&2 echo "TOOLSET_SHORT not set (gcc, msvc, mingw)"
 	exit 1
 fi
 if [ -z "${STATIC_DYNAMIC-}" ]; then
