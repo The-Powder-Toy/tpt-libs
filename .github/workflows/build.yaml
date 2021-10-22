@@ -37,10 +37,10 @@ jobs:
 # --------------+------------+------------+------------+------------+------------+------------+
 # gcc-static    |            |            |     NO     |     NO     |     NO     |     NO     |
 # msvc-static   |     NO     |     NO     |            |     NO     |     NO     |            |
-# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |   NO [1]   |
+# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |     NO     |
 # gcc-dynamic   |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |
 # msvc-dynamic  |     NO     |     NO     |            |     NO     |     NO     |            |
-# mingw-dynamic |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |
+# mingw-dynamic |     NO     |     NO     |            |     NO     |     NO     |     NO     |
 #
 # [1] I don't currently care enough about mingw to figure out how to do this.
         platform_short: [lin, mac, win]
@@ -50,37 +50,32 @@ jobs:
         exclude:
           - toolset_short: gcc
             static_dynamic: dynamic
+          - platform_short: lin
+            machine_short: i686
+          - platform_short: mac
+            machine_short: i686
           - toolset_short: mingw
-            static_dynamic: dynamic
-          - platform_short: lin
             machine_short: i686
-          - platform_short: mac
-            machine_short: i686
-          - platform_short: win
-            toolset_short: gcc
-          - platform_short: lin
-            toolset_short: msvc
-          - platform_short: mac
-            toolset_short: msvc
-          - static_dynamic: static
-            toolset_short: mingw
-            platform_short: lin
-          - static_dynamic: static
-            toolset_short: mingw
-            platform_short: mac
-          - static_dynamic: static
-            toolset_short: mingw
+          - toolset_short: gcc
             platform_short: win
-            machine_short: i686
-          - toolset_short: mingw # Temporary, until I figured out how to get MinGW builds to work.
+          - toolset_short: msvc
+            platform_short: lin
+          - toolset_short: msvc
+            platform_short: mac
+          - toolset_short: mingw
+            platform_short: lin
+          - toolset_short: mingw
+            platform_short: mac
         include:
           - platform_short: lin
             os: ubuntu-18.04
           - platform_short: mac
-            os: macos-latest
+            os: macos-10.15
           - platform_short: win
-            os: windows-latest
+            os: windows-2019
     steps:
+      - if: matrix.toolset_short == 'mingw'
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
       - id: get_vtag

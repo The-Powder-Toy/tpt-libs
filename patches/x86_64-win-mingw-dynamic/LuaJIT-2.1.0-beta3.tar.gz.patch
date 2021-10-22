@@ -1,7 +1,7 @@
 diff -Naur patchtemp/lib.before/LuaJIT-2.1.0-beta3/src/Makefile patchtemp/lib.after/LuaJIT-2.1.0-beta3/src/Makefile
 --- patchtemp/lib.before/LuaJIT-2.1.0-beta3/src/Makefile	2017-05-01 21:05:00.000000000 +0200
-+++ patchtemp/lib.after/LuaJIT-2.1.0-beta3/src/Makefile	2021-10-21 20:34:12.260890300 +0200
-@@ -71,10 +71,10 @@
++++ patchtemp/lib.after/LuaJIT-2.1.0-beta3/src/Makefile	2021-10-21 15:37:18.042926400 +0200
+@@ -71,14 +71,14 @@
  # as dynamic mode.
  #
  # Mixed mode creates a static + dynamic library and a statically linked luajit.
@@ -9,11 +9,15 @@ diff -Naur patchtemp/lib.before/LuaJIT-2.1.0-beta3/src/Makefile patchtemp/lib.af
 +#BUILDMODE= mixed
  #
  # Static mode creates a static library and a statically linked luajit.
--#BUILDMODE= static
-+BUILDMODE= static
+ #BUILDMODE= static
  #
  # Dynamic mode creates a dynamic library and a dynamically linked luajit.
  # Note: this executable will only run when the library is installed!
+-#BUILDMODE= dynamic
++BUILDMODE= dynamic
+ #
+ ##############################################################################
+ 
 @@ -216,7 +216,7 @@
  TARGET_SONAME= libluajit-$(ABIVER).so.$(MAJVER)
  TARGET_DYLIBNAME= libluajit-$(ABIVER).$(MAJVER).dylib

@@ -1,0 +1,12 @@
+diff -Naur patchtemp/lib.before/fftw-3.3.8/ltmain.sh patchtemp/lib.after/fftw-3.3.8/ltmain.sh
+--- patchtemp/lib.before/fftw-3.3.8/ltmain.sh	2016-08-20 14:34:31.000000000 +0200
++++ patchtemp/lib.after/fftw-3.3.8/ltmain.sh	2021-10-21 19:24:10.526663000 +0200
+@@ -5697,7 +5697,7 @@
+               func_to_host_path "$dllsearchpath:"
+ 	      cat <<EOF
+ const char * EXE_PATH_VARNAME = "PATH";
+-const char * EXE_PATH_VALUE   = "$func_to_host_path_result";
++const char * EXE_PATH_VALUE   = $func_to_host_path_result
+ EOF
+ 	    else
+ 	      cat <<"EOF"

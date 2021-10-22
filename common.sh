@@ -51,7 +51,11 @@ get_and_cd() {
 		if cat $patch | head -n 1 | grep .before; then # patchtool.sh patches
 			num=2
 		fi
-		patch -p$num -i $patch
+		pachargs=
+		if [ $TOOLSET_SHORT == "mingw" ]; then
+			pachargs="--binary"
+		fi
+		patch $pachargs -p$num -i $patch # works for me, might not work on ghactions -- LBPHacker
 	fi
 	cd *
 }

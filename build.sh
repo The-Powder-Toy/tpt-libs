@@ -18,7 +18,7 @@ if [ -z "${build_sh_init-}" ]; then
 	fi
 	mkdir $temp_base
 
-	if [ $PLATFORM_SHORT == "win" ]; then
+	if [ $TOOLSET_SHORT == "msvc" ]; then
 		for i in C:/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
 			vcvarsall_path=$i
 		done
@@ -48,8 +48,15 @@ if [ $PLATFORM_SHORT == "mac" ]; then
 	BSHCFLAGS=-mmacosx-version-min=10.9
 	BSHLDFLAGS=-mmacosx-version-min=10.9
 fi
+CFLAGS=$BSHCFLAGS
+LDFLAGS=$BSHLDFLAGS
 
-make=$'make\t-j'
+makebin="make"
+if [ $TOOLSET_SHORT == "mingw" ]; then
+	makebin="mingw32-make"
+fi
+make="$makebin"
+make+=$'\t-j'
 if [ -z "${NPROC-}" ]; then
 	NPROC=`nproc`
 fi
@@ -80,9 +87,14 @@ compile_zlib() {
 				cp zdll.lib $libs/z.lib
 				cp zlib1.dll $libs
 			fi
-		else
-			make -f win32/Makefile.gcc libz.a
-			cp libz.a $libs
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				$make -f win32/Makefile.gcc libz.a
+				cp libz.a $libs
+			else
+				$make -f win32/Makefile.gcc zlib1.dll
+				cp zlib1.dll $libs
+			fi
 		fi
 	else
 		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
@@ -116,21 +128,33 @@ compile_fftw() {
 			if [ $STATIC_DYNAMIC == "dynamic" ]; then
 				cp build/Release/fftw3f.dll $libs
 			fi
-		else
-			build_for=x86_64-pc-mingw64
-			./configure \
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
+			build_for=x86_64-pc-mingw32
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=$'--disable-shared\t--enable-static'
+			else
+				dynstat_options=$'--enable-shared\t--disable-static'
+			fi
+			./configure $dynstat_options \
 				--build=$build_for \
-				--disable-shared \
 				--enable-static \
-				--enable-portable-binary \
 				--disable-alloca \
 				--with-our-malloc16 \
 				--disable-threads \
 				--disable-fortran \
 				--enable-float \
 				--enable-sse
-			$make
-			cp .libs/libfftw3f.a $libs
+			fix_makefile_shells
+			mkdir bin
+			cd bin
+			ln -s `which $makebin` make
+			cd ..
+			PATH="`readlink -f bin`:$PATH" $make
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp .libs/libfftw3f.a $libs
+			else
+				cp .libs/libfftw3f-3.dll $libs
+			fi
 		fi
 	else
 		build_for=`./config.guess`
@@ -171,9 +195,14 @@ compile_lua51() {
 				cp build/lua5.1.lib $libs/lua5.1.lib
 				cp build/lua5.1.dll $libs
 			fi
-		else
-			$make PLAT=mingw LUA_A="liblua5.1.a" mingw
-			cp src/liblua5.1.a $libs
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				$make PLAT=mingw LUA_A="liblua5.1.a" mingw
+				cp src/liblua5.1.a $libs
+			else
+				$make PLAT=mingw LUA_A="lua5.1.dll" mingw
+				cp src/lua5.1.dll $libs
+			fi
 		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
@@ -209,9 +238,14 @@ compile_lua52() {
 				cp build/lua5.2.lib $libs/lua5.2.lib
 				cp build/lua5.2.dll $libs
 			fi
-		else
-			$make PLAT=mingw LUA_A="liblua5.2.a" mingw
-			cp src/liblua5.2.a $libs
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				$make PLAT=mingw LUA_A="liblua5.2.a" mingw
+				cp src/liblua5.2.a $libs
+			else
+				$make PLAT=mingw LUA_A="lua5.2.dll" mingw
+				cp src/lua5.2.dll $libs
+			fi
 		fi
 	else
 		if [ $PLATFORM_SHORT == "lin" ]; then
@@ -244,11 +278,15 @@ compile_luajit() {
 			if [ $STATIC_DYNAMIC == "dynamic" ]; then
 				cp src/luajit21.dll $libs
 			fi
-		else
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
 			cd src
 			TARGET_SYS=Windows $make
 			cd ..
-			cp src/libluajit.a $libs
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp src/libluajit.a $libs
+			else
+				cp src/luajit21.dll $libs
+			fi
 		fi
 	else
 		luajit_plat=
@@ -286,15 +324,21 @@ compile_curl() {
 				cp builds/libcurl-vc-$x64_x86-release-dll-ipv6-sspi-winssl/lib/libcurl.lib $libs/curl.lib
 				cp builds/libcurl-vc-$x64_x86-release-dll-ipv6-sspi-winssl/bin/libcurl.dll $libs
 			fi
-		else
-			curl_plat=
-			if [ $PLATFORM_SHORT == "mac" ]; then
-				curl_plat=--with-darwinssl
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
+			build_for=$MACHINE_SHORT-pc-mingw32
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=$'--disable-shared\t--enable-static'
+			else
+				dynstat_options=$'--enable-shared\t--disable-static'
 			fi
-			./configure $curl_plat \
+			# may or may not need --without-zlib -- LBPHacker
+			./configure $dynstat_options \
+				--build=$build_for \
+				--disable-dependency-tracking \
 				--enable-http \
 				--enable-ipv6 \
 				--enable-proxy \
+				--with-schannel \
 				--disable-dict \
 				--disable-file \
 				--disable-ftp \
@@ -303,7 +347,6 @@ compile_curl() {
 				--disable-ldap \
 				--disable-pop3 \
 				--disable-rtsp \
-				--disable-shared \
 				--disable-smb \
 				--disable-smtp \
 				--disable-sspi \
@@ -318,8 +361,16 @@ compile_curl() {
 				--without-quiche \
 				--without-winidn
 			fix_makefile_shells
-			$make
-			cp lib/.libs/libcurl.a $libs
+			mkdir bin
+			cd bin
+			ln -s `which $makebin` make
+			cd ..
+			PATH="`readlink -f bin`:$PATH" $make
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp lib/.libs/libcurl.a $libs
+			else
+				cp lib/.libs/libcurl-4.dll $libs
+			fi
 		fi
 	else
 		curl_plat=
@@ -389,11 +440,15 @@ compile_sdl2() {
 			if [ $STATIC_DYNAMIC == "dynamic" ]; then
 				cp build/Release/SDL2.dll $libs
 			fi
-		else
+		elif [ $TOOLSET_SHORT == "mingw" ]; then
 			build_for=$MACHINE_SHORT-pc-mingw32
-			./configure \
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				dynstat_options=$'--disable-shared'
+			else
+				dynstat_options=
+			fi
+			./configure $dynstat_options \
 				--build=$build_for \
-				--disable-shared \
 				--disable-audio \
 				--disable-haptic \
 				--disable-joystick \
@@ -401,7 +456,11 @@ compile_sdl2() {
 				--disable-hidapi
 			fix_makefile_shells
 			$make
-			cp build/.libs/libSDL2.a $libs
+			if [ $STATIC_DYNAMIC == "static" ]; then
+				cp build/.libs/libSDL2.a $libs
+			else
+				cp build/.libs/SDL2.dll $libs
+			fi
 		fi
 	else
 		build_for=`./build-scripts/config.guess`
@@ -425,13 +484,13 @@ cp -r zip_stub/$quad $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
-compile_zlib
 compile_curl
-compile_sdl2
 compile_fftw
-compile_luajit
 compile_lua51
 compile_lua52
+compile_zlib
+compile_luajit
+compile_sdl2
 
 cd $temp_base
 mv $zip_root $zip_root-$VTAG
