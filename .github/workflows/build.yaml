@@ -92,7 +92,7 @@ jobs:
       - if: matrix.platform_short == 'win'
         run: python -m pip install meson ninja
       - if: matrix.platform_short == 'lin'
-        run: sudo apt install libibus-1.0-dev libdbus-1-dev fcitx-libs-dev
+        run: sudo apt update && sudo apt install libibus-1.0-dev libdbus-1-dev fcitx-libs-dev
       - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} MACHINE_SHORT=${{ matrix.machine_short }} TOOLSET_SHORT=${{ matrix.toolset_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         id: upload_release_asset
