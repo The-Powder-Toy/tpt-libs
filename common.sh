@@ -34,9 +34,10 @@ tarball_hash() {
 }
 
 get_and_cd() {
+	dir="lib.$1"
 	tarball_hash $1
-	mkdir $temp_base/lib
-	cd $temp_base/lib
+	mkdir $temp_base/$dir
+	cd $temp_base/$dir
 	tarball=../../tarballs/$1
 	patch=../../patches/$quad/$1.patch
 	# note that the sha256 sums in this script are only for checking integrity
@@ -62,5 +63,5 @@ get_and_cd() {
 
 uncd_and_unget() {
 	cd ../../..
-	rm -r $temp_base/lib
+	rm -r $temp_base/$dir
 }

@@ -484,13 +484,20 @@ cp -r zip_stub/$quad $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
-compile_curl
-compile_fftw
-compile_lua51
-compile_lua52
-compile_zlib
-compile_luajit
-compile_sdl2
+jobsuffix=""
+jobfinish=""
+if [ $NPROC -ge 4 ]; then
+	jobsuffix="&"
+	jobfinish="wait"
+fi
+eval "compile_curl $jobsuffix"
+eval "compile_fftw $jobsuffix"
+eval "compile_lua51 $jobsuffix"
+eval "compile_lua52 $jobsuffix"
+eval "compile_zlib $jobsuffix"
+eval "compile_luajit $jobsuffix"
+eval "compile_sdl2 $jobsuffix"
+eval "$jobfinish"
 
 cd $temp_base
 mv $zip_root $zip_root-$VTAG
