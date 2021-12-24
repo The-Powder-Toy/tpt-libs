@@ -4,7 +4,7 @@ cpp_compiler = meson.get_compiler('cpp')
 uopt_lua = get_option('lua')
 
 lib_inv = {
-	'zlib'    : [ 'z'       , 'zlib1.dll'       ],
+	'zlib'    : [ 'zlib1'   , 'zlib1.dll'       ],
 	'sdl2'    : [ 'SDL2'    , 'SDL2.dll'        ],
 	'fftw'    : [ 'fftw3f-3', 'libfftw3f-3.dll' ],
 	'libcurl' : [ 'curl-4'  , 'libcurl-4.dll'   ],
@@ -16,9 +16,9 @@ other_libs = [
 	'shell32',
 	'wsock32',
 	'user32',
-	'Advapi32',
+	'advapi32',
 	'ws2_32',
-	'Wldap32',
+	'wldap32',
 	'crypt32',
 	'winmm',
 	'gdi32',

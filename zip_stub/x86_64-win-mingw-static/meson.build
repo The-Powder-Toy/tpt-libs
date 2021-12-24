@@ -16,15 +16,15 @@ other_libs = [
 	'shell32',
 	'wsock32',
 	'user32',
-	'Advapi32',
+	'advapi32',
 	'ws2_32',
-	'Wldap32',
+	'wldap32',
 	'crypt32',
 	'winmm',
 	'gdi32',
-	'Version',
-	'Imm32',
-	'Setupapi',
+	'version',
+	'imm32',
+	'setupapi',
 ]
 
 incdirs = [ include_directories('include') ]
