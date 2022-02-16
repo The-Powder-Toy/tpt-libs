@@ -33,19 +33,19 @@ jobs:
     needs: [release]
     strategy:
       matrix:
-#               | lin-x86_64 | mac-x86_64 | win-x86_64 |  lin-i686  |  mac-i686  |  win-i686  |
-# --------------+------------+------------+------------+------------+------------+------------+
-# gcc-static    |            |            |     NO     |     NO     |     NO     |     NO     |
-# msvc-static   |     NO     |     NO     |            |     NO     |     NO     |            |
-# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |     NO     |
-# gcc-dynamic   |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |
-# msvc-dynamic  |     NO     |     NO     |            |     NO     |     NO     |            |
-# mingw-dynamic |     NO     |     NO     |            |     NO     |     NO     |     NO     |
+#               | lin-x86_64 | mac-x86_64 | win-x86_64 |  lin-i686  |  mac-i686  |  win-i686  |  lin-arm64 |  mac-arm64 |  win-arm64 
+# --------------+------------+------------+------------+------------+------------+------------+------------+------------+------------
+# gcc-static    |            |            |     NO     |     NO     |     NO     |     NO     |     NO     |            |     NO     
+# msvc-static   |     NO     |     NO     |            |     NO     |     NO     |            |     NO     |     NO     |     NO     
+# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
+# gcc-dynamic   |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
+# msvc-dynamic  |     NO     |     NO     |            |     NO     |     NO     |            |     NO     |     NO     |     NO     
+# mingw-dynamic |     NO     |     NO     |            |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
 #
 # [1] I don't currently care enough about mingw to figure out how to do this.
         platform_short: [lin, mac, win]
         toolset_short: [gcc, msvc, mingw]
-        machine_short: [x86_64, i686]
+        machine_short: [x86_64, i686, arm64]
         static_dynamic: [static, dynamic]
         exclude:
           - toolset_short: gcc
@@ -66,11 +66,15 @@ jobs:
             platform_short: lin
           - toolset_short: mingw
             platform_short: mac
+          - platform_short: lin
+            machine_short: arm64
+          - platform_short: win
+            machine_short: arm64
         include:
           - platform_short: lin
             os: ubuntu-18.04
           - platform_short: mac
-            os: macos-10.15
+            os: macos-11.0
           - platform_short: win
             os: windows-2019
     steps:

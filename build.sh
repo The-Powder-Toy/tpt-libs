@@ -42,14 +42,25 @@ fi
 includes_root=include
 libs_root=lib
 
+BSHCC=gcc
+BSHCXX=g++
 BSHCFLAGS=
 BSHLDFLAGS=
 if [ $PLATFORM_SHORT == "mac" ]; then
+	BSHCC=clang
+	BSHCXX=clang++
 	BSHCFLAGS=-mmacosx-version-min=10.9
 	BSHLDFLAGS=-mmacosx-version-min=10.9
+	if [ $MACHINE_SHORT == "arm64" ]; then
+		# could it really be this simple?
+		# BSHCFLAGS=$'-target\tarm64-apple-macos11' # ??
+		BSHCFLAGS=$'-arch\tarm64\t-mmacosx-version-min=11.0'
+		BSHLDFLAGS=$'-arch\tarm64\t-mmacosx-version-min=11.0'
+		# BSHLDFLAGS=-mmacosx-version-min=11.0
+	fi
 fi
-CFLAGS=$BSHCFLAGS
-LDFLAGS=$BSHLDFLAGS
+export CFLAGS=$BSHCFLAGS
+export LDFLAGS=$BSHLDFLAGS
 
 makebin="make"
 if [ $TOOLSET_SHORT == "mingw" ]; then
@@ -97,7 +108,7 @@ compile_zlib() {
 			fi
 		fi
 	else
-		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
+		CC=$BSHCC CXX=$BSHCXX CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
 		$make
 		cp libz.a $libs
 	fi
@@ -157,18 +168,20 @@ compile_fftw() {
 			fi
 		fi
 	else
-		build_for=`./config.guess`
-		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure \
-			--build=$build_for \
+		fftw_plat=--build=`./config.guess`
+		fftw_plat+=$'\t--enable-sse'
+		if [ $PLATFORM_SHORT == "mac" ] && [ $MACHINE_SHORT == "arm64" ]; then
+			fftw_plat=$'--build=x86_64-apple-darwin\t--host=aarch64-apple-darwin'
+			fftw_plat+=$'\t--enable-neon'
+		fi
+		CC=$BSHCC CXX=$BSHCXX CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $fftw_plat \
 			--disable-shared \
 			--enable-static \
-			--enable-portable-binary \
 			--disable-alloca \
 			--with-our-malloc16 \
 			--disable-threads \
 			--disable-fortran \
-			--enable-float \
-			--enable-sse
+			--enable-float
 		$make
 		cp .libs/libfftw3f.a $libs
 	fi
@@ -211,7 +224,7 @@ compile_lua51() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make MYCFLAGS=$BSHCFLAGS MYLDFLAGS=$BSHLDFLAGS PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
+		$make CC=$BSHCXX CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
 		cp src/liblua5.1.a $libs
 	fi
 	mkdir $includes/lua5.1
@@ -254,7 +267,7 @@ compile_lua52() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make MYCFLAGS=$BSHCFLAGS MYLDFLAGS=$BSHLDFLAGS PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
+		$make CC=$BSHCXX CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
 		cp src/liblua5.2.a $libs
 	fi
 	mkdir $includes/lua5.2
@@ -292,8 +305,11 @@ compile_luajit() {
 		luajit_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			luajit_plat=MACOSX_DEPLOYMENT_TARGET=10.9
+			if [ $MACHINE_SHORT == "arm64" ]; then
+				luajit_plat=MACOSX_DEPLOYMENT_TARGET=11.0
+			fi
 		fi
-		$make CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS $luajit_plat LUAJIT_SO=
+		CC=$BSHCC CXX=$BSHCXX CFLAGS= LDFLAGS= $make TARGET_CFLAGS="$BSHCFLAGS" TARGET_LDFLAGS="$BSHLDFLAGS" $luajit_plat LUAJIT_SO=
 		cp src/libluajit.a $libs
 	fi
 	mkdir $includes/luajit-2.1
@@ -376,6 +392,9 @@ compile_curl() {
 		curl_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			curl_plat=--with-darwinssl
+			if [ $MACHINE_SHORT == "arm64" ]; then
+				curl_plat+=$'\t--host=aarch64-apple-darwin'
+			fi
 		fi
 		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $curl_plat \
 			--enable-http \
@@ -463,9 +482,11 @@ compile_sdl2() {
 			fi
 		fi
 	else
-		build_for=`./build-scripts/config.guess`
-		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure \
-			--build=$build_for \
+		sdl2_plat=--build=`./build-scripts/config.guess`
+		if [ $PLATFORM_SHORT == "mac" ] && [ $MACHINE_SHORT == "arm64" ]; then
+			sdl2_plat=$'--build=x86_64-apple-darwin\t--host=aarch64-apple-darwin'
+		fi
+		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $sdl2_plat \
 			--disable-shared \
 			--disable-audio \
 			--disable-haptic \
@@ -490,13 +511,13 @@ if [ $NPROC -ge 4 ]; then
 	jobsuffix="&"
 	jobfinish="wait"
 fi
-eval "compile_curl $jobsuffix"
-eval "compile_fftw $jobsuffix"
-eval "compile_lua51 $jobsuffix"
-eval "compile_lua52 $jobsuffix"
 eval "compile_zlib $jobsuffix"
-eval "compile_luajit $jobsuffix"
 eval "compile_sdl2 $jobsuffix"
+eval "compile_luajit $jobsuffix"
+eval "compile_lua52 $jobsuffix"
+eval "compile_lua51 $jobsuffix"
+eval "compile_fftw $jobsuffix"
+eval "compile_curl $jobsuffix"
 eval "$jobfinish"
 
 cd $temp_base

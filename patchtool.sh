@@ -23,12 +23,12 @@ start)
 
 	mkdir $temp_base
 
+	lib_path_common=$temp_base/lib.$patchtool_tarball
+	lib_path_before=$temp_base/lib.before
+	lib_path_after=$temp_base/lib.after
 	skip_patch=yes
 	get_and_cd $patchtool_tarball
 	cd ../../..
-	lib_path_common=$temp_base/lib
-	lib_path_before=$temp_base/lib.before
-	lib_path_after=$temp_base/lib.after
 	mv $lib_path_common $lib_path_before
 	skip_patch=
 	get_and_cd $patchtool_tarball

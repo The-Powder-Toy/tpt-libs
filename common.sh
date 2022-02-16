@@ -3,7 +3,7 @@ if [ -z "${PLATFORM_SHORT-}" ]; then
 	exit 1
 fi
 if [ -z "${MACHINE_SHORT-}" ]; then
-	>&2 echo "MACHINE_SHORT not set (x86_64, i686)"
+	>&2 echo "MACHINE_SHORT not set (x86_64, i686, arm64)"
 	exit 1
 fi
 if [ -z "${TOOLSET_SHORT-}" ]; then
