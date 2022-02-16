@@ -496,8 +496,7 @@ compile_sdl2() {
 		$make
 		cp build/.libs/libSDL2.a $libs
 	fi
-	mkdir $includes/SDL2
-	cp include/*.h $includes/SDL2
+	cp include/*.h $includes
 	uncd_and_unget
 }
 
