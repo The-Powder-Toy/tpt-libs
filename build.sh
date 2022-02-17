@@ -52,11 +52,8 @@ if [ $PLATFORM_SHORT == "mac" ]; then
 	BSHCFLAGS=-mmacosx-version-min=10.9
 	BSHLDFLAGS=-mmacosx-version-min=10.9
 	if [ $MACHINE_SHORT == "arm64" ]; then
-		# could it really be this simple?
-		# BSHCFLAGS=$'-target\tarm64-apple-macos11' # ??
-		BSHCFLAGS=$'-arch\tarm64\t-mmacosx-version-min=11.0'
-		BSHLDFLAGS=$'-arch\tarm64\t-mmacosx-version-min=11.0'
-		# BSHLDFLAGS=-mmacosx-version-min=11.0
+		BSHCFLAGS=$'-arch\tarm64\t-mmacosx-version-min=10.15'
+		BSHLDFLAGS=$'-arch\tarm64\t-mmacosx-version-min=10.15'
 	fi
 fi
 export CFLAGS=$BSHCFLAGS
@@ -306,7 +303,7 @@ compile_luajit() {
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			luajit_plat=MACOSX_DEPLOYMENT_TARGET=10.9
 			if [ $MACHINE_SHORT == "arm64" ]; then
-				luajit_plat=MACOSX_DEPLOYMENT_TARGET=11.0
+				luajit_plat=MACOSX_DEPLOYMENT_TARGET=10.15
 			fi
 		fi
 		CC=$BSHCC CXX=$BSHCXX CFLAGS= LDFLAGS= $make TARGET_CFLAGS="$BSHCFLAGS" TARGET_LDFLAGS="$BSHLDFLAGS" $luajit_plat LUAJIT_SO=
