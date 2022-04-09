@@ -13,13 +13,8 @@ if [ -z "${VTAG-}" ]; then
 fi
 
 if [ -z "${build_sh_init-}" ]; then
-	if [ -d $temp_base ]; then
-		rm -r $temp_base
-	fi
-	mkdir $temp_base
-
 	if [ $TOOLSET_SHORT == "msvc" ]; then
-		for i in C:/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
+		for i in C:/Program\ Files*/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
 			vcvarsall_path=$i
 		done
 		if [ $MACHINE_SHORT == "x86_64" ]; then
@@ -27,17 +22,22 @@ if [ -z "${build_sh_init-}" ]; then
 		else
 			x64_x86=x86
 		fi
-		cat << BUILD_INIT_BAT > $temp_base/build_init.bat
+		cat << BUILD_INIT_BAT > .github/build_init.bat
 @echo off
 call "${vcvarsall_path}" ${x64_x86}
 bash -c 'build_sh_init=1 ./build.sh'
 BUILD_INIT_BAT
-		./$temp_base/build_init.bat
+		./.github/build_init.bat
 	else
 		build_sh_init=1 ./build.sh
 	fi
 	exit 0
 fi
+
+if [ -d $temp_base ]; then
+	rm -r $temp_base
+fi
+mkdir $temp_base
 
 includes_root=include
 libs_root=lib
@@ -428,13 +428,13 @@ compile_curl() {
 }
 
 compile_sdl2() {
-	get_and_cd SDL2-2.0.10.tar.gz # acquired from https://www.libsdl.org/release/SDL2-2.0.10.tar.gz
+	get_and_cd SDL2-2.0.20.tar.gz # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $TOOLSET_SHORT == "msvc" ]; then
 			mkdir build
 			cd build
 			if [ $STATIC_DYNAMIC == "static" ]; then
-				dynstat_options=$'-DFORCE_STATIC_VCRT=ON\t-DBUILD_SHARED_LIBS=OFF\t-DLIBC=ON'
+				dynstat_options=$'-DSDL_FORCE_STATIC_VCRT=ON\t-DBUILD_SHARED_LIBS=OFF\t-DSDL_LIBC=ON'
 			else
 				dynstat_options=
 			fi
@@ -448,11 +448,12 @@ compile_sdl2() {
 				-DSDL_HAPTIC=OFF \
 				-DSDL_JOYSTICK=OFF \
 				-DSDL_POWER=OFF \
-				-DHIDAPI=OFF \
+				-DSDL_HIDAPI=OFF \
 				..
 			cmake --build . --config Release
 			cd ..
 			cp build/Release/SDL2.lib $libs
+			cp build/Release/SDL2main.lib $libs
 			if [ $STATIC_DYNAMIC == "dynamic" ]; then
 				cp build/Release/SDL2.dll $libs
 			fi
@@ -472,6 +473,7 @@ compile_sdl2() {
 				--disable-hidapi
 			fix_makefile_shells
 			$make
+			cp build/.libs/libSDL2main.a $libs
 			if [ $STATIC_DYNAMIC == "static" ]; then
 				cp build/.libs/libSDL2.a $libs
 			else
@@ -492,29 +494,41 @@ compile_sdl2() {
 			--disable-hidapi
 		$make
 		cp build/.libs/libSDL2.a $libs
+		cp build/.libs/libSDL2main.a $libs
 	fi
 	cp include/*.h $includes
 	uncd_and_unget
 }
 
-cp -r zip_stub/$quad $temp_base/$zip_root
+cp -r zip_stub $temp_base/$zip_root
 mkdir -p $temp_base/$zip_root/$includes_root
 mkdir -p $temp_base/$zip_root/$libs_root
 
-jobsuffix=""
-jobfinish=""
-if [ $NPROC -ge 4 ]; then
-	jobsuffix="&"
-	jobfinish="wait"
+parallel=n
+[ $NPROC -ge 4 ] && parallel=y
+if [ $parallel == "y" ]; then
+	declare -A pids
+	run_job() {
+		$1 &
+		pids[$1]=$!
+	}
+else
+	run_job() {
+		$1
+	}
 fi
-eval "compile_zlib $jobsuffix"
-eval "compile_sdl2 $jobsuffix"
-eval "compile_luajit $jobsuffix"
-eval "compile_lua52 $jobsuffix"
-eval "compile_lua51 $jobsuffix"
-eval "compile_fftw $jobsuffix"
-eval "compile_curl $jobsuffix"
-eval "$jobfinish"
+run_job compile_sdl2
+run_job compile_zlib
+run_job compile_luajit
+run_job compile_lua52
+run_job compile_lua51
+run_job compile_fftw
+run_job compile_curl
+if [ $parallel == "y" ]; then
+	for pid in ${pids[*]}; do
+		wait $pid
+	done
+fi
 
 cd $temp_base
 mv $zip_root $zip_root-$VTAG

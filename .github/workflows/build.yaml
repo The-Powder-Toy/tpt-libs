@@ -32,6 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [release]
     strategy:
+      fail-fast: false
       matrix:
 #               | lin-x86_64 | mac-x86_64 | win-x86_64 |  lin-i686  |  mac-i686  |  win-i686  |  lin-arm64 |  mac-arm64 |  win-arm64 
 # --------------+------------+------------+------------+------------+------------+------------+------------+------------+------------
@@ -43,9 +44,9 @@ jobs:
 # mingw-dynamic |     NO     |     NO     |            |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
 #
 # [1] I don't currently care enough about mingw to figure out how to do this.
+        machine_short: [x86_64, i686, arm64]
         platform_short: [lin, mac, win]
         toolset_short: [gcc, msvc, mingw]
-        machine_short: [x86_64, i686, arm64]
         static_dynamic: [static, dynamic]
         exclude:
           - toolset_short: gcc
@@ -97,7 +98,13 @@ jobs:
         run: python -m pip install meson ninja
       - if: matrix.platform_short == 'lin'
         run: sudo apt update && sudo apt install libibus-1.0-dev libdbus-1-dev fcitx-libs-dev
-      - run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} MACHINE_SHORT=${{ matrix.machine_short }} TOOLSET_SHORT=${{ matrix.toolset_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ./build.sh'
+      - run: bash -c './build.sh'
+        env:
+          PLATFORM_SHORT: ${{ matrix.platform_short }}
+          MACHINE_SHORT: ${{ matrix.machine_short }}
+          TOOLSET_SHORT: ${{ matrix.toolset_short }}
+          STATIC_DYNAMIC: ${{ matrix.static_dynamic }}
+          VTAG: ${{ steps.get_vtag.outputs.VTAG }} 
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         id: upload_release_asset
         uses: actions/upload-release-asset@v1
@@ -114,7 +121,14 @@ jobs:
           path: temp/libraries.zip
           name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: bash -c 'PLATFORM_SHORT=${{ matrix.platform_short }} MACHINE_SHORT=${{ matrix.machine_short }} TOOLSET_SHORT=${{ matrix.toolset_short }} STATIC_DYNAMIC=${{ matrix.static_dynamic }} VTAG=${{ steps.get_vtag.outputs.VTAG }} ASSET=${{ steps.upload_release_asset.outputs.browser_download_url }} ./wrapfile.sh'
+        run: bash -c './wrapfile.sh'
+        env:
+          PLATFORM_SHORT: ${{ matrix.platform_short }}
+          MACHINE_SHORT: ${{ matrix.machine_short }}
+          TOOLSET_SHORT: ${{ matrix.toolset_short }}
+          STATIC_DYNAMIC: ${{ matrix.static_dynamic }}
+          VTAG: ${{ steps.get_vtag.outputs.VTAG }}
+          ASSET: ${{ steps.upload_release_asset.outputs.browser_download_url }} 
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-release-asset@v1
         env:

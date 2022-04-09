@@ -1,0 +1,31 @@
+diff -Naur patchtemp/lib.before/SDL2-2.0.20/CMakeLists.txt patchtemp/lib.after/SDL2-2.0.20/CMakeLists.txt
+--- patchtemp/lib.before/SDL2-2.0.20/CMakeLists.txt 2022-01-08 22:13:56.000000000 +0100
++++ patchtemp/lib.after/SDL2-2.0.20/CMakeLists.txt  2022-04-09 12:39:33.945683700 +0200
+@@ -467,7 +467,6 @@
+   ${SDL2_SOURCE_DIR}/src/dynapi/*.c
+   ${SDL2_SOURCE_DIR}/src/events/*.c
+   ${SDL2_SOURCE_DIR}/src/file/*.c
+-  ${SDL2_SOURCE_DIR}/src/haptic/*.c
+   ${SDL2_SOURCE_DIR}/src/hidapi/*.c
+   ${SDL2_SOURCE_DIR}/src/libm/*.c
+   ${SDL2_SOURCE_DIR}/src/locale/*.c
+@@ -968,6 +967,8 @@
+     # Haptic requires some private functions from the joystick subsystem.
+     message_error("SDL_HAPTIC requires SDL_JOYSTICK, which is not enabled")
+   endif()
++  file(GLOB JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/haptic/*.c)
++  set(SOURCE_FILES ${SOURCE_FILES} ${JOYSTICK_SOURCES})
+ endif()
+ 
+ 
+--- patchtemp/lib.before/SDL2-2.0.20/src/dynapi/SDL_dynapi.h    2022-01-08 03:29:52.000000000 +0100
++++ patchtemp/lib.after/SDL2-2.0.20/src/dynapi/SDL_dynapi.h 2022-04-09 12:38:14.570974100 +0200
+@@ -65,7 +65,7 @@
+ 
+ /* everyone else. This is where we turn on the API if nothing forced it off. */
+ #ifndef SDL_DYNAMIC_API
+-#define SDL_DYNAMIC_API 1
++// #define SDL_DYNAMIC_API 1
+ #endif
+ 
+ #endif

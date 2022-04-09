@@ -1,0 +1,31 @@
+option(
+	'static',
+	type: 'combo',
+	choices: [ 'none', 'system', 'prebuilt' ],
+	value: 'none',
+	description: 'Don\'t change this manually, let the superproject handle it',
+	yield: true
+)
+option(
+	'http',
+	type: 'boolean',
+	value: true,
+	description: 'Don\'t change this manually, let the superproject handle it',
+	yield: true
+)
+option(
+	'lua',
+	type: 'combo',
+	choices: [ 'none', 'lua5.1', 'lua5.2', 'luajit' ],
+	value: 'luajit',
+	description: 'Don\'t change this manually, let the superproject handle it',
+	yield: true
+)
+option(
+	'ssl',
+	type: 'combo',
+	choices: [ 'openssl' ],
+	value: 'openssl',
+	description: 'Don\'t change this manually, let the superproject handle it',
+	yield: true
+)

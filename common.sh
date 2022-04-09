@@ -28,7 +28,7 @@ tarball_hash() {
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;;
 	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;;
 	curl-7.68.0.tar.gz)        sha256sum=1dd7604e418b0b9a9077f62f763f6684c1b092a7bc17e3f354b8ad5c964d7358;;
-	SDL2-2.0.10.tar.gz)        sha256sum=b4656c13a1f0d0023ae2f4a9cf08ec92fffb464e0f24238337784159b8b91d57;;
+	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;;
 	*)                     >&2 echo "no such tarball (update tarball_hash in common/common.sh)" && exit 1;;
 	esac
 }
