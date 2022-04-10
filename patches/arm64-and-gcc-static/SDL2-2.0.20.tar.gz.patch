@@ -1,0 +1,37 @@
+diff -Naur patchtemp/lib.before/SDL2-2.0.20/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java patchtemp/lib.after/SDL2-2.0.20/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java
+--- patchtemp/lib.before/SDL2-2.0.20/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java	2022-01-08 03:29:52.000000000 +0100
++++ patchtemp/lib.after/SDL2-2.0.20/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java	2022-04-11 19:31:48.592938338 +0200
+@@ -164,12 +164,7 @@
+      */
+     protected String[] getLibraries() {
+         return new String[] {
+-            "SDL2",
+-            // "SDL2_image",
+-            // "SDL2_mixer",
+-            // "SDL2_net",
+-            // "SDL2_ttf",
+-            "main"
++            "powder"
+         };
+     }
+ 
+diff -Naur patchtemp/lib.before/SDL2-2.0.20/configure patchtemp/lib.after/SDL2-2.0.20/configure
+--- patchtemp/lib.before/SDL2-2.0.20/configure	2022-01-09 20:28:24.000000000 +0100
++++ patchtemp/lib.after/SDL2-2.0.20/configure	2022-04-11 19:58:42.567029587 +0200
+@@ -17937,6 +17937,7 @@
+ SOURCES="$SOURCES $srcdir/src/file/*.c"
+ SOURCES="$SOURCES $srcdir/src/haptic/*.c"
+ SOURCES="$SOURCES $srcdir/src/hidapi/*.c"
++SOURCES="$SOURCES $srcdir/src/hidapi/android/*.cpp"
+ SOURCES="$SOURCES $srcdir/src/joystick/*.c"
+ SOURCES="$SOURCES $srcdir/src/libm/*.c"
+ SOURCES="$SOURCES $srcdir/src/misc/*.c"
+@@ -26926,7 +26927,7 @@
+ 
+ OBJECTS=`echo $SOURCES`
+ DEPENDS=`echo $SOURCES | tr ' ' '\n'`
+-for EXT in asm cc m c S; do
++for EXT in cpp asm cc m c S; do
+     OBJECTS=`echo "$OBJECTS" | sed 's,[^ ]*/\([^ ]*\)\.'$EXT',$(objects)/\1.lo,g'`
+     DEPENDS=`echo "$DEPENDS" | sed "s,^\\([^ ]*\\)/\\([^ ]*\\)\\.$EXT\\$,\\\\
+ \\$(objects)/\\2.lo: \\1/\\2.$EXT \\$(objects)/.created\\\\

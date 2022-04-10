@@ -1,6 +1,30 @@
+diff -Naur patchtemp/lib.before/lua-5.1.5/src/llex.c patchtemp/lib.after/lua-5.1.5/src/llex.c
+--- patchtemp/lib.before/lua-5.1.5/src/llex.c	2009-11-23 15:58:22.000000000 +0100
++++ patchtemp/lib.after/lua-5.1.5/src/llex.c	2022-04-12 07:45:59.836725258 +0200
+@@ -178,7 +178,7 @@
+ 
+ static void trydecpoint (LexState *ls, SemInfo *seminfo) {
+   /* format error: try to update decimal point separator */
+-  struct lconv *cv = localeconv();
++  struct lconv *cv = NULL;
+   char old = ls->decpoint;
+   ls->decpoint = (cv ? cv->decimal_point[0] : '.');
+   buffreplace(ls, old, ls->decpoint);  /* try updated decimal separator */
+diff -Naur patchtemp/lib.before/lua-5.1.5/src/luaconf.h patchtemp/lib.after/lua-5.1.5/src/luaconf.h
+--- patchtemp/lib.before/lua-5.1.5/src/luaconf.h	2008-02-11 17:25:08.000000000 +0100
++++ patchtemp/lib.after/lua-5.1.5/src/luaconf.h	2022-04-12 07:45:23.902636465 +0200
+@@ -36,7 +36,7 @@
+ #if defined(LUA_USE_LINUX)
+ #define LUA_USE_POSIX
+ #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
+-#define LUA_USE_READLINE	/* needs some extra libraries */
++// #define LUA_USE_READLINE	/* needs some extra libraries */
+ #endif
+ 
+ #if defined(LUA_USE_MACOSX)
 diff -Naur patchtemp/lib.before/lua-5.1.5/src/Makefile patchtemp/lib.after/lua-5.1.5/src/Makefile
 --- patchtemp/lib.before/lua-5.1.5/src/Makefile	2012-02-13 21:41:22.000000000 +0100
-+++ patchtemp/lib.after/lua-5.1.5/src/Makefile	2022-02-16 10:35:55.000000000 +0100
++++ patchtemp/lib.after/lua-5.1.5/src/Makefile	2022-04-12 07:45:23.869302429 +0200
 @@ -47,15 +47,18 @@
  
  a:	$(ALL_A)
@@ -42,15 +66,3 @@ diff -Naur patchtemp/lib.before/lua-5.1.5/src/Makefile patchtemp/lib.after/lua-5
  # use this on Mac OS X 10.3-
  #	$(MAKE) all MYCFLAGS=-DLUA_USE_MACOSX
  
-diff -Naur patchtemp/lib.before/lua-5.1.5/src/luaconf.h patchtemp/lib.after/lua-5.1.5/src/luaconf.h
---- patchtemp/lib.before/lua-5.1.5/src/luaconf.h	2008-02-11 17:25:08.000000000 +0100
-+++ patchtemp/lib.after/lua-5.1.5/src/luaconf.h	2022-02-16 10:28:20.000000000 +0100
-@@ -36,7 +36,7 @@
- #if defined(LUA_USE_LINUX)
- #define LUA_USE_POSIX
- #define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
--#define LUA_USE_READLINE	/* needs some extra libraries */
-+// #define LUA_USE_READLINE	/* needs some extra libraries */
- #endif
- 
- #if defined(LUA_USE_MACOSX)

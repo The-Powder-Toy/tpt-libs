@@ -1,9 +1,9 @@
 if [ -z "${PLATFORM_SHORT-}" ]; then
-	>&2 echo "PLATFORM_SHORT not set (lin, mac, win)"
+	>&2 echo "PLATFORM_SHORT not set (lin, mac, win, and)"
 	exit 1
 fi
 if [ -z "${MACHINE_SHORT-}" ]; then
-	>&2 echo "MACHINE_SHORT not set (x86_64, i686, arm64)"
+	>&2 echo "MACHINE_SHORT not set (x86_64, i686, arm64, arm)"
 	exit 1
 fi
 if [ -z "${TOOLSET_SHORT-}" ]; then

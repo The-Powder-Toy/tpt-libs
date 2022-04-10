@@ -1,6 +1,18 @@
+diff -Naur patchtemp/lib.before/lua-5.2.4/src/llex.c patchtemp/lib.after/lua-5.2.4/src/llex.c
+--- patchtemp/lib.before/lua-5.2.4/src/llex.c	2015-02-09 18:56:34.000000000 +0100
++++ patchtemp/lib.after/lua-5.2.4/src/llex.c	2022-04-12 07:44:59.132113575 +0200
+@@ -202,7 +202,7 @@
+ 
+ 
+ #if !defined(getlocaledecpoint)
+-#define getlocaledecpoint()	(localeconv()->decimal_point[0])
++#define getlocaledecpoint()	'.'
+ #endif
+ 
+ 
 diff -Naur patchtemp/lib.before/lua-5.2.4/src/luaconf.h patchtemp/lib.after/lua-5.2.4/src/luaconf.h
 --- patchtemp/lib.before/lua-5.2.4/src/luaconf.h	2013-11-21 18:26:16.000000000 +0100
-+++ patchtemp/lib.after/lua-5.2.4/src/luaconf.h	2021-01-03 00:07:20.248638932 +0100
++++ patchtemp/lib.after/lua-5.2.4/src/luaconf.h	2022-04-12 07:44:08.124364283 +0200
 @@ -43,7 +43,7 @@
  #if defined(LUA_USE_LINUX)
  #define LUA_USE_POSIX
@@ -21,17 +33,29 @@ diff -Naur patchtemp/lib.before/lua-5.2.4/src/luaconf.h patchtemp/lib.after/lua-
  #define LUA_USE_LONGLONG	/* assume support for long long */
 diff -Naur patchtemp/lib.before/lua-5.2.4/src/Makefile patchtemp/lib.after/lua-5.2.4/src/Makefile
 --- patchtemp/lib.before/lua-5.2.4/src/Makefile	2013-11-11 12:45:49.000000000 +0100
-+++ patchtemp/lib.after/lua-5.2.4/src/Makefile	2021-01-03 00:07:32.028662292 +0100
-@@ -6,7 +6,7 @@
- # Your platform. See PLATS for possible values.
- PLAT= none
++++ patchtemp/lib.after/lua-5.2.4/src/Makefile	2022-04-12 07:44:08.031028961 +0200
+@@ -55,15 +55,18 @@
  
--CC= gcc
-+CC= gcc
- CFLAGS= -O2 -Wall -DLUA_COMPAT_ALL $(SYSCFLAGS) $(MYCFLAGS)
- LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
- LIBS= -lm $(SYSLIBS) $(MYLIBS)
-@@ -98,15 +98,15 @@
+ a:	$(ALL_A)
+ 
++%.o: %.c
++	$(CC) $(CFLAGS) -c $< -o $@
++
+ $(LUA_A): $(BASE_O)
+ 	$(AR) $@ $(BASE_O)
+ 	$(RANLIB) $@
+ 
+ $(LUA_T): $(LUA_O) $(LUA_A)
+-	$(CC) -o $@ $(LDFLAGS) $(LUA_O) $(LUA_A) $(LIBS)
++	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(LUA_O) $(LUA_A) $(LIBS)
+ 
+ $(LUAC_T): $(LUAC_O) $(LUA_A)
+-	$(CC) -o $@ $(LDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
++	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
+ 
+ clean:
+ 	$(RM) $(ALL_T) $(ALL_O)
+@@ -98,15 +101,15 @@
  	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_POSIX -DLUA_USE_DLOPEN" SYSLIBS="-Wl,-E"
  
  freebsd:
@@ -46,7 +70,7 @@ diff -Naur patchtemp/lib.before/lua-5.2.4/src/Makefile patchtemp/lib.after/lua-5
  
  macosx:
 -	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_MACOSX" SYSLIBS="-lreadline" CC=cc
-+	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_MACOSX" SYSLIBS="" CC=cc
++	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_MACOSX" SYSLIBS=""
  
  mingw:
  	$(MAKE) "LUA_A=lua52.dll" "LUA_T=lua.exe" \

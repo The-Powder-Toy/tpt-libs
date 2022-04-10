@@ -40,5 +40,5 @@ diff -Naur patchtemp/lib.before/lua-5.2.4/meson.build patchtemp/lib.after/lua-5.
 +		'src/lvm.c',
 +		'src/lzio.c',
 +	),
-+	c_args: [ '-DLUA_BUILD_AS_DLL', '/TP' ] # msvc "it's actually all C++" flag
++	c_args: [ '-DLUA_BUILD_AS_DLL' ]
 +)

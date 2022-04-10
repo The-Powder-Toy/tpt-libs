@@ -10,6 +10,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         id: create_release
@@ -21,31 +23,25 @@ jobs:
           release_name: ${{ github.ref }}
           draft: false
           prerelease: false
-      - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
-      - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v1
-        with:
-          name: release_url
-          path: release_url.txt
   build:
     runs-on: ${{ matrix.os }}
     needs: [release]
     strategy:
       fail-fast: false
       matrix:
-#               | lin-x86_64 | mac-x86_64 | win-x86_64 |  lin-i686  |  mac-i686  |  win-i686  |  lin-arm64 |  mac-arm64 |  win-arm64 
-# --------------+------------+------------+------------+------------+------------+------------+------------+------------+------------
-# gcc-static    |            |            |     NO     |     NO     |     NO     |     NO     |     NO     |            |     NO     
-# msvc-static   |     NO     |     NO     |            |     NO     |     NO     |            |     NO     |     NO     |     NO     
-# mingw-static  |     NO     |     NO     |            |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
-# gcc-dynamic   |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
-# msvc-dynamic  |     NO     |     NO     |            |     NO     |     NO     |            |     NO     |     NO     |     NO     
-# mingw-dynamic |     NO     |     NO     |            |     NO     |     NO     |     NO     |     NO     |     NO     |     NO     
+#                |          x86_64           |           i686            |           arm64           |            arm            
+#                |  lin |  mac |  win |  and |  lin |  mac |  win |  and |  lin |  mac |  win |  and |  lin |  mac |  win |  and 
+# ---------------+------+------+------+------+------+------+------+------+------+------+------+------+------+------+------+------
+#          gcc   |      |      |  NO  |      |  NO  |  NO  |  NO  |      |  NO  |      |  NO  |      |  NO  |  NO  |  NO  |      
+# static   msvc  |  NO  |  NO  |      |  NO  |  NO  |  NO  |      |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  
+#          mingw |  NO  |  NO  |      |  NO  |  NO  |  NO  |NO [1]|  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  
+#          gcc   |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  
+# dynamic  msvc  |  NO  |  NO  |      |  NO  |  NO  |  NO  |      |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  
+#          mingw |  NO  |  NO  |      |  NO  |  NO  |  NO  |NO [1]|  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  |  NO  
 #
 # [1] I don't currently care enough about mingw to figure out how to do this.
-        machine_short: [x86_64, i686, arm64]
-        platform_short: [lin, mac, win]
+        machine_short: [x86_64, i686, arm64, arm]
+        platform_short: [lin, mac, win, and]
         toolset_short: [gcc, msvc, mingw]
         static_dynamic: [static, dynamic]
         exclude:
@@ -71,6 +67,18 @@ jobs:
             machine_short: arm64
           - platform_short: win
             machine_short: arm64
+          - platform_short: and
+            static_dynamic: dynamic
+          - platform_short: and
+            toolset_short: msvc
+          - platform_short: and
+            toolset_short: mingw
+          - platform_short: lin
+            machine_short: arm
+          - platform_short: win
+            machine_short: arm
+          - platform_short: mac
+            machine_short: arm
         include:
           - platform_short: lin
             os: ubuntu-18.04
@@ -78,20 +86,13 @@ jobs:
             os: macos-11.0
           - platform_short: win
             os: windows-2019
+          - platform_short: and
+            os: ubuntu-18.04
     steps:
-      - if: matrix.toolset_short == 'mingw'
-        run: git config --global core.autocrlf false
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
       - id: get_vtag
         run: python ./.github/get-vtag.py ${{ github.ref }}
-      - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/download-artifact@v1
-        with:
-          name: release_url
-      - if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: get_release_info
-        run: bash -c "./.github/get-release-info.sh" ## gg github, this is terrible
       - if: matrix.platform_short == 'mac'
         run: brew install coreutils
       - if: matrix.platform_short == 'win'
@@ -111,7 +112,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: temp/libraries.zip
           asset_name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.zip
           asset_content_type: application/zip
@@ -134,7 +135,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: temp/libraries.wrap
           asset_name: tpt-libs-prebuilt-${{ matrix.machine_short }}-${{ matrix.platform_short }}-${{ matrix.toolset_short }}-${{ matrix.static_dynamic }}-${{ steps.get_vtag.outputs.VTAG }}.wrap
           asset_content_type: application/zip

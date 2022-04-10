@@ -6,7 +6,7 @@ diff -Naur patchtemp/lib.before/lua-5.2.4/src/Makefile patchtemp/lib.after/lua-5
  PLAT= none
  
 -CC= gcc
-+CC= g++
++CC= gcc
  CFLAGS= -O2 -Wall -DLUA_COMPAT_ALL $(SYSCFLAGS) $(MYCFLAGS)
  LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
  LIBS= -lm $(SYSLIBS) $(MYLIBS)
@@ -15,7 +15,7 @@ diff -Naur patchtemp/lib.before/lua-5.2.4/src/Makefile patchtemp/lib.after/lua-5
  a:	$(ALL_A)
  
 +%.o: %.c
-+	$(CC) $(CFLAGS) -x c++ -c $< -o $@
++	$(CC) $(CFLAGS) -c $< -o $@
 +
  $(LUA_A): $(BASE_O)
  	$(AR) $@ $(BASE_O)

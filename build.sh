@@ -44,6 +44,7 @@ libs_root=lib
 
 BSHCC=gcc
 BSHCXX=g++
+BSHLD=ld
 BSHCFLAGS=
 BSHLDFLAGS=
 if [ $PLATFORM_SHORT == "mac" ]; then
@@ -55,6 +56,40 @@ if [ $PLATFORM_SHORT == "mac" ]; then
 		BSHCFLAGS=$'-arch\tarm64\t-mmacosx-version-min=10.15'
 		BSHLDFLAGS=$'-arch\tarm64\t-mmacosx-version-min=10.15'
 	fi
+fi
+if [ $PLATFORM_SHORT == "and" ]; then
+	ANDROIDPLATFORM=android-30
+	if [ -z "${JAVA_HOME_8_X64-}" ]; then
+		>&2 echo "JAVA_HOME_8_X64 not set (where is your java ndk?)"
+		exit 1
+	fi
+	if [ -z "${ANDROID_SDK_ROOT-}" ]; then
+		>&2 echo "ANDROID_SDK_ROOT not set (where is your android sdk?)"
+		exit 1
+	fi
+	ANDROIDNDK=$ANDROID_SDK_ROOT/ndk-bundle
+	TOOLCHAIN=$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/bin
+	if [ $MACHINE_SHORT == "x86_64" ]; then
+		LDPREFIX=x86_64-linux-android
+		CCPREFIX=${LDPREFIX}21
+	fi
+	if [ $MACHINE_SHORT == "i686" ]; then
+		LDPREFIX=i686-linux-android
+		CCPREFIX=${LDPREFIX}19
+	fi
+	if [ $MACHINE_SHORT == "arm64" ]; then
+		LDPREFIX=aarch64-linux-android
+		CCPREFIX=${LDPREFIX}21
+	fi
+	if [ $MACHINE_SHORT == "arm" ]; then
+		LDPREFIX=armv7a-linux-androideabi
+		CCPREFIX=${LDPREFIX}19
+	fi
+	BSHLD=$TOOLCHAIN/$LDPREFIX-ld
+	BSHCC=$TOOLCHAIN/$CCPREFIX-clang
+	BSHCXX=$TOOLCHAIN/$CCPREFIX-clang++
+	BSHCFLAGS+=" -fPIC"
+	BSHLDFLAGS+=" -fPIC"
 fi
 export CFLAGS=$BSHCFLAGS
 export LDFLAGS=$BSHLDFLAGS
@@ -105,7 +140,7 @@ compile_zlib() {
 			fi
 		fi
 	else
-		CC=$BSHCC CXX=$BSHCXX CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
+		CC=$BSHCC CXX=$BSHCXX LD=$BSHLD CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure --static
 		$make
 		cp libz.a $libs
 	fi
@@ -171,7 +206,19 @@ compile_fftw() {
 			fftw_plat=$'--build=x86_64-apple-darwin\t--host=aarch64-apple-darwin'
 			fftw_plat+=$'\t--enable-neon'
 		fi
-		CC=$BSHCC CXX=$BSHCXX CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $fftw_plat \
+		if [ $PLATFORM_SHORT == "and" ]; then
+			fftw_plat=$'--build=x86_64-linux-gnu'
+			if [ $MACHINE_SHORT == "x86_64" ]; then
+				fftw_plat+=$'\t--host=x86_64-linux-android\t--enable-sse'
+			elif [ $MACHINE_SHORT == "i686" ]; then
+				fftw_plat+=$'\t--host=i686-linux-android\t--enable-sse'
+			elif [ $MACHINE_SHORT == "arm64" ]; then
+				fftw_plat+=$'\t--host=aarch64-linux-android\t--enable-neon'
+			elif [ $MACHINE_SHORT == "arm" ]; then
+				fftw_plat+=$'\t--host=armv7a-linux-android\t--enable-neon'
+			fi
+		fi
+		CC=$BSHCC CXX=$BSHCXX LD=$BSHLD CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $fftw_plat \
 			--disable-shared \
 			--enable-static \
 			--disable-alloca \
@@ -218,10 +265,13 @@ compile_lua51() {
 		if [ $PLATFORM_SHORT == "lin" ]; then
 			lua_plat=linux
 		fi
+		if [ $PLATFORM_SHORT == "and" ]; then
+			lua_plat=linux
+		fi
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make CC=$BSHCXX CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
+		$make CC=$BSHCC CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.1.a" $lua_plat
 		cp src/liblua5.1.a $libs
 	fi
 	mkdir $includes/lua5.1
@@ -261,10 +311,13 @@ compile_lua52() {
 		if [ $PLATFORM_SHORT == "lin" ]; then
 			lua_plat=linux
 		fi
+		if [ $PLATFORM_SHORT == "and" ]; then
+			lua_plat=linux
+		fi
 		if [ $PLATFORM_SHORT == "mac" ]; then
 			lua_plat=macosx
 		fi
-		$make CC=$BSHCXX CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
+		$make CC=$BSHCC CFLAGS="$BSHCFLAGS" MYLDFLAGS="$BSHLDFLAGS" PLAT=$lua_plat LUA_A="liblua5.2.a" $lua_plat
 		cp src/liblua5.2.a $libs
 	fi
 	mkdir $includes/lua5.2
@@ -273,6 +326,9 @@ compile_lua52() {
 }
 
 compile_luajit() {
+	if [ $PLATFORM_SHORT == "and" ]; then
+		return
+	fi
 	get_and_cd LuaJIT-2.1.0-beta3.tar.gz # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $TOOLSET_SHORT == "msvc" ]; then
@@ -298,6 +354,11 @@ compile_luajit() {
 				cp src/luajit21.dll $libs
 			fi
 		fi
+	elif [ $PLATFORM_SHORT == "and" ]; then
+		cd src
+		CC=$BSHCC CXX=$BSHCXX LD=$BSHLD TARGET_SYS=Android $make
+		cd ..
+		cp src/libluajit.a $libs
 	else
 		luajit_plat=
 		if [ $PLATFORM_SHORT == "mac" ]; then
@@ -306,7 +367,7 @@ compile_luajit() {
 				luajit_plat=MACOSX_DEPLOYMENT_TARGET=10.15
 			fi
 		fi
-		CC=$BSHCC CXX=$BSHCXX CFLAGS= LDFLAGS= $make TARGET_CFLAGS="$BSHCFLAGS" TARGET_LDFLAGS="$BSHLDFLAGS" $luajit_plat LUAJIT_SO=
+		CC=$BSHCC CXX=$BSHCXX LD=$BSHLD CFLAGS= LDFLAGS= $make TARGET_CFLAGS="$BSHCFLAGS" TARGET_LDFLAGS="$BSHLDFLAGS" $luajit_plat LUAJIT_SO=
 		cp src/libluajit.a $libs
 	fi
 	mkdir $includes/luajit-2.1
@@ -315,6 +376,9 @@ compile_luajit() {
 }
 
 compile_curl() {
+	if [ $PLATFORM_SHORT == "and" ]; then
+		return
+	fi
 	get_and_cd curl-7.68.0.tar.gz # acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
 	if [ $PLATFORM_SHORT == "win" ]; then
 		if [ $TOOLSET_SHORT == "msvc" ]; then
@@ -485,13 +549,37 @@ compile_sdl2() {
 		if [ $PLATFORM_SHORT == "mac" ] && [ $MACHINE_SHORT == "arm64" ]; then
 			sdl2_plat=$'--build=x86_64-apple-darwin\t--host=aarch64-apple-darwin'
 		fi
-		CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $sdl2_plat \
+		if [ $PLATFORM_SHORT == "and" ]; then
+			sdl2_plat=$'--build=x86_64-linux-gnu'
+			if [ $MACHINE_SHORT == "x86_64" ]; then
+				sdl2_plat+=$'\t--host=x86_64-linux-android'
+			elif [ $MACHINE_SHORT == "i686" ]; then
+				sdl2_plat+=$'\t--host=i686-linux-android'
+			elif [ $MACHINE_SHORT == "arm64" ]; then
+				sdl2_plat+=$'\t--host=aarch64-linux-android'
+			elif [ $MACHINE_SHORT == "arm" ]; then
+				sdl2_plat+=$'\t--host=armv7a-linux-android'
+			fi
+			sdl2_plat+=$'\t--disable-video-wayland\t--disable-video-x11\t--disable-video-kmsdrm\t--disable-dbus\t--disable-ime'
+		else
+			sdl2_plat+=$'\t--disable-haptic\t--disable-joystick\t--disable-hidapi'
+		fi
+		if [ $PLATFORM_SHORT == "and" ]; then
+			cd android-project/app/src/main/java
+			$JAVA_HOME_8_X64/bin/javac \
+				-source 1.8 \
+				-target 1.8 \
+				-bootclasspath $JAVA_HOME_8_X64/jre/lib/rt.jar \
+				-classpath $ANDROID_SDK_ROOT/platforms/android-30/android.jar \
+				`find . -name "*.java"`
+			$JAVA_HOME_8_X64/bin/jar cMf sdl.jar `find . -name "*.class"`
+			cd ../../../../..
+			cp android-project/app/src/main/java/sdl.jar $libs
+		fi
+		CC=$BSHCC CXX=$BSHCXX LD=$BSHLD CFLAGS=$BSHCFLAGS LDFLAGS=$BSHLDFLAGS ./configure $sdl2_plat \
 			--disable-shared \
 			--disable-audio \
-			--disable-haptic \
-			--disable-joystick \
-			--disable-power \
-			--disable-hidapi
+			--disable-power
 		$make
 		cp build/.libs/libSDL2.a $libs
 		cp build/.libs/libSDL2main.a $libs
@@ -518,12 +606,12 @@ else
 	}
 fi
 run_job compile_sdl2
-run_job compile_zlib
-run_job compile_luajit
 run_job compile_lua52
 run_job compile_lua51
+run_job compile_luajit
 run_job compile_fftw
 run_job compile_curl
+run_job compile_zlib
 if [ $parallel == "y" ]; then
 	for pid in ${pids[*]}; do
 		wait $pid
