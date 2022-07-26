@@ -67,8 +67,10 @@ if [ $PLATFORM_SHORT == "and" ]; then
 		>&2 echo "ANDROID_SDK_ROOT not set (where is your android sdk?)"
 		exit 1
 	fi
-	ANDROIDNDK=$ANDROID_SDK_ROOT/ndk-bundle
-	TOOLCHAIN=$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/bin
+	if [ -z "${ANDROID_NDK_LATEST_HOME-}" ]; then
+		>&2 echo "ANDROID_NDK_LATEST_HOME not set (where is your android ndk?)"
+		exit 1
+	fi
 	if [ $MACHINE_SHORT == "x86_64" ]; then
 		LDPREFIX=x86_64-linux-android
 		CCPREFIX=${LDPREFIX}21
@@ -85,6 +87,7 @@ if [ $PLATFORM_SHORT == "and" ]; then
 		LDPREFIX=armv7a-linux-androideabi
 		CCPREFIX=${LDPREFIX}19
 	fi
+	TOOLCHAIN=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
 	BSHLD=$TOOLCHAIN/$LDPREFIX-ld
 	BSHCC=$TOOLCHAIN/$CCPREFIX-clang
 	BSHCXX=$TOOLCHAIN/$CCPREFIX-clang++
@@ -570,7 +573,7 @@ compile_sdl2() {
 				-source 1.8 \
 				-target 1.8 \
 				-bootclasspath $JAVA_HOME_8_X64/jre/lib/rt.jar \
-				-classpath $ANDROID_SDK_ROOT/platforms/android-30/android.jar \
+				-classpath $ANDROID_SDK_ROOT/platforms/$ANDROIDPLATFORM/android.jar \
 				`find . -name "*.java"`
 			$JAVA_HOME_8_X64/bin/jar cMf sdl.jar `find . -name "*.class"`
 			cd ../../../../..
