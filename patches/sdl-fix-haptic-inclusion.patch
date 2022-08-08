@@ -1,0 +1,20 @@
+diff -Naur SDL2-2.0.20.old/CMakeLists.txt SDL2-2.0.20.new/CMakeLists.txt
+--- SDL2-2.0.20.old/CMakeLists.txt	2022-08-23 18:11:59.822822400 +0200
++++ SDL2-2.0.20.new/CMakeLists.txt	2022-08-23 18:12:28.009424700 +0200
+@@ -467,7 +467,6 @@
+   ${SDL2_SOURCE_DIR}/src/dynapi/*.c
+   ${SDL2_SOURCE_DIR}/src/events/*.c
+   ${SDL2_SOURCE_DIR}/src/file/*.c
+-  ${SDL2_SOURCE_DIR}/src/haptic/*.c
+   ${SDL2_SOURCE_DIR}/src/hidapi/*.c
+   ${SDL2_SOURCE_DIR}/src/libm/*.c
+   ${SDL2_SOURCE_DIR}/src/locale/*.c
+@@ -968,6 +967,8 @@
+     # Haptic requires some private functions from the joystick subsystem.
+     message_error("SDL_HAPTIC requires SDL_JOYSTICK, which is not enabled")
+   endif()
++  file(GLOB JOYSTICK_SOURCES ${SDL2_SOURCE_DIR}/src/haptic/*.c)
++  set(SOURCE_FILES ${SOURCE_FILES} ${JOYSTICK_SOURCES})
+ endif()
+ 
+ 

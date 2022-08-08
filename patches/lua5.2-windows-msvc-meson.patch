@@ -1,0 +1,50 @@
+diff -Naur lua-5.2.4.old/meson.build lua-5.2.4.new/meson.build
+--- lua-5.2.4.old/meson.build	1970-01-01 01:00:00.000000000 +0100
++++ lua-5.2.4.new/meson.build	2022-08-24 11:53:14.757332900 +0200
+@@ -0,0 +1,46 @@
++project('lua', 'cpp')
++
++library(
++	'lua',
++	sources: files(
++		'src/lapi.cpp',
++		'src/lauxlib.cpp',
++		'src/lbaselib.cpp',
++		'src/lbitlib.cpp',
++		'src/lcode.cpp',
++		'src/lcorolib.cpp',
++		'src/lctype.cpp',
++		'src/ldblib.cpp',
++		'src/ldebug.cpp',
++		'src/ldo.cpp',
++		'src/ldump.cpp',
++		'src/lfunc.cpp',
++		'src/lgc.cpp',
++		'src/linit.cpp',
++		'src/liolib.cpp',
++		'src/llex.cpp',
++		'src/lmathlib.cpp',
++		'src/lmem.cpp',
++		'src/loadlib.cpp',
++		'src/lobject.cpp',
++		'src/lopcodes.cpp',
++		'src/loslib.cpp',
++		'src/lparser.cpp',
++		'src/lstate.cpp',
++		'src/lstring.cpp',
++		'src/lstrlib.cpp',
++		'src/ltable.cpp',
++		'src/ltablib.cpp',
++		'src/ltm.cpp',
++		'src/lundump.cpp',
++		'src/lvm.cpp',
++		'src/lzio.cpp',
++	),
++	install: true,
++)
++install_headers([
++	'src/lauxlib.h',
++	'src/lua.h',
++	'src/luaconf.h',
++	'src/lualib.h',
++])

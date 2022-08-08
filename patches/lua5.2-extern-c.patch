@@ -1,0 +1,72 @@
+diff -Naur lua-5.2.4.old/src/lauxlib.h lua-5.2.4.new/src/lauxlib.h
+--- lua-5.2.4.old/src/lauxlib.h	2022-08-24 11:11:09.773169787 +0200
++++ lua-5.2.4.new/src/lauxlib.h	2022-08-24 11:12:11.381553048 +0200
+@@ -12,6 +12,11 @@
+ #include <stddef.h>
+ #include <stdio.h>
+ 
++#ifdef __cplusplus
++extern "C"
++{
++#endif
++
+ #include "lua.h"
+ 
+ 
+@@ -206,6 +211,9 @@
+ 
+ #endif
+ 
++#ifdef __cplusplus
++}
++#endif
+ 
+ #endif
+ 
+diff -Naur lua-5.2.4.old/src/lua.h lua-5.2.4.new/src/lua.h
+--- lua-5.2.4.old/src/lua.h	2022-08-24 11:11:09.773169787 +0200
++++ lua-5.2.4.new/src/lua.h	2022-08-24 11:11:09.776503213 +0200
+@@ -12,6 +12,10 @@
+ #include <stdarg.h>
+ #include <stddef.h>
+ 
++#ifdef __cplusplus
++extern "C"
++{
++#endif
+ 
+ #include "luaconf.h"
+ 
+@@ -440,5 +444,8 @@
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+ 
++#ifdef __cplusplus
++}
++#endif
+ 
+ #endif
+diff -Naur lua-5.2.4.old/src/lualib.h lua-5.2.4.new/src/lualib.h
+--- lua-5.2.4.old/src/lualib.h	2022-08-24 11:11:09.773169787 +0200
++++ lua-5.2.4.new/src/lualib.h	2022-08-24 11:12:10.544863073 +0200
+@@ -8,6 +8,11 @@
+ #ifndef lualib_h
+ #define lualib_h
+ 
++#ifdef __cplusplus
++extern "C"
++{
++#endif
++
+ #include "lua.h"
+ 
+ 
+@@ -51,5 +56,8 @@
+ #define lua_assert(x)	((void)0)
+ #endif
+ 
++#ifdef __cplusplus
++}
++#endif
+ 
+ #endif

@@ -1,0 +1,354 @@
+diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel.c
+--- curl-7.68.0.old/lib/vtls/schannel.c	2022-08-27 15:23:59.170944823 +0200
++++ curl-7.68.0.new/lib/vtls/schannel.c	2022-08-27 15:28:40.222039257 +0200
+@@ -1462,151 +1462,6 @@
+ }
+ 
+ static ssize_t
+-schannel_send(struct connectdata *conn, int sockindex,
+-              const void *buf, size_t len, CURLcode *err)
+-{
+-  ssize_t written = -1;
+-  size_t data_len = 0;
+-  unsigned char *data = NULL;
+-  struct ssl_connect_data *connssl = &conn->ssl[sockindex];
+-  SecBuffer outbuf[4];
+-  SecBufferDesc outbuf_desc;
+-  SECURITY_STATUS sspi_status = SEC_E_OK;
+-  CURLcode result;
+-
+-  /* check if the maximum stream sizes were queried */
+-  if(BACKEND->stream_sizes.cbMaximumMessage == 0) {
+-    sspi_status = s_pSecFn->QueryContextAttributes(
+-      &BACKEND->ctxt->ctxt_handle,
+-      SECPKG_ATTR_STREAM_SIZES,
+-      &BACKEND->stream_sizes);
+-    if(sspi_status != SEC_E_OK) {
+-      *err = CURLE_SEND_ERROR;
+-      return -1;
+-    }
+-  }
+-
+-  /* check if the buffer is longer than the maximum message length */
+-  if(len > BACKEND->stream_sizes.cbMaximumMessage) {
+-    len = BACKEND->stream_sizes.cbMaximumMessage;
+-  }
+-
+-  /* calculate the complete message length and allocate a buffer for it */
+-  data_len = BACKEND->stream_sizes.cbHeader + len +
+-    BACKEND->stream_sizes.cbTrailer;
+-  data = (unsigned char *) malloc(data_len);
+-  if(data == NULL) {
+-    *err = CURLE_OUT_OF_MEMORY;
+-    return -1;
+-  }
+-
+-  /* setup output buffers (header, data, trailer, empty) */
+-  InitSecBuffer(&outbuf[0], SECBUFFER_STREAM_HEADER,
+-                data, BACKEND->stream_sizes.cbHeader);
+-  InitSecBuffer(&outbuf[1], SECBUFFER_DATA,
+-                data + BACKEND->stream_sizes.cbHeader, curlx_uztoul(len));
+-  InitSecBuffer(&outbuf[2], SECBUFFER_STREAM_TRAILER,
+-                data + BACKEND->stream_sizes.cbHeader + len,
+-                BACKEND->stream_sizes.cbTrailer);
+-  InitSecBuffer(&outbuf[3], SECBUFFER_EMPTY, NULL, 0);
+-  InitSecBufferDesc(&outbuf_desc, outbuf, 4);
+-
+-  /* copy data into output buffer */
+-  memcpy(outbuf[1].pvBuffer, buf, len);
+-
+-  /* https://msdn.microsoft.com/en-us/library/windows/desktop/aa375390.aspx */
+-  sspi_status = s_pSecFn->EncryptMessage(&BACKEND->ctxt->ctxt_handle, 0,
+-                                         &outbuf_desc, 0);
+-
+-  /* check if the message was encrypted */
+-  if(sspi_status == SEC_E_OK) {
+-    written = 0;
+-
+-    /* send the encrypted message including header, data and trailer */
+-    len = outbuf[0].cbBuffer + outbuf[1].cbBuffer + outbuf[2].cbBuffer;
+-
+-    /*
+-      It's important to send the full message which includes the header,
+-      encrypted payload, and trailer.  Until the client receives all the
+-      data a coherent message has not been delivered and the client
+-      can't read any of it.
+-
+-      If we wanted to buffer the unwritten encrypted bytes, we would
+-      tell the client that all data it has requested to be sent has been
+-      sent. The unwritten encrypted bytes would be the first bytes to
+-      send on the next invocation.
+-      Here's the catch with this - if we tell the client that all the
+-      bytes have been sent, will the client call this method again to
+-      send the buffered data?  Looking at who calls this function, it
+-      seems the answer is NO.
+-    */
+-
+-    /* send entire message or fail */
+-    while(len > (size_t)written) {
+-      ssize_t this_write;
+-      timediff_t timeleft;
+-      int what;
+-
+-      this_write = 0;
+-
+-      timeleft = Curl_timeleft(conn->data, NULL, FALSE);
+-      if(timeleft < 0) {
+-        /* we already got the timeout */
+-        failf(conn->data, "schannel: timed out sending data "
+-              "(bytes sent: %zd)", written);
+-        *err = CURLE_OPERATION_TIMEDOUT;
+-        written = -1;
+-        break;
+-      }
+-
+-      what = SOCKET_WRITABLE(conn->sock[sockindex], timeleft);
+-      if(what < 0) {
+-        /* fatal error */
+-        failf(conn->data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
+-        *err = CURLE_SEND_ERROR;
+-        written = -1;
+-        break;
+-      }
+-      else if(0 == what) {
+-        failf(conn->data, "schannel: timed out sending data "
+-              "(bytes sent: %zd)", written);
+-        *err = CURLE_OPERATION_TIMEDOUT;
+-        written = -1;
+-        break;
+-      }
+-      /* socket is writable */
+-
+-      result = Curl_write_plain(conn, conn->sock[sockindex], data + written,
+-                                len - written, &this_write);
+-      if(result == CURLE_AGAIN)
+-        continue;
+-      else if(result != CURLE_OK) {
+-        *err = result;
+-        written = -1;
+-        break;
+-      }
+-
+-      written += this_write;
+-    }
+-  }
+-  else if(sspi_status == SEC_E_INSUFFICIENT_MEMORY) {
+-    *err = CURLE_OUT_OF_MEMORY;
+-  }
+-  else{
+-    *err = CURLE_SEND_ERROR;
+-  }
+-
+-  Curl_safefree(data);
+-
+-  if(len == (size_t)written)
+-    /* Encrypted message including header, data and trailer entirely sent.
+-       The return value is the number of unencrypted bytes that were sent. */
+-    written = outbuf[1].cbBuffer;
+-
+-  return written;
+-}
+-
+-static ssize_t
+ schannel_recv(struct connectdata *conn, int sockindex,
+               char *buf, size_t len, CURLcode *err)
+ {
+@@ -1928,6 +1783,173 @@
+   return *err ? -1 : 0;
+ }
+ 
++static ssize_t
++schannel_send(struct connectdata *conn, int sockindex,
++              const void *buf, size_t len, CURLcode *err)
++{
++  ssize_t written = 0;
++  bool go_again = TRUE;
++  while (go_again) {
++    go_again = FALSE;
++
++    if (!len)
++    {
++      *err = CURLE_OK;
++      return written;
++    }
++
++    struct ssl_connect_data *connssl = &conn->ssl[sockindex];
++    SecBuffer outbuf[4];
++    SecBufferDesc outbuf_desc;
++    SECURITY_STATUS sspi_status = SEC_E_OK;
++    CURLcode result;
++
++    size_t len_chunk = 0;
++    bool retry = FALSE;
++    if (BACKEND->send_buffer != NULL) {
++      if (BACKEND->send_last_byte != ((const unsigned char *)buf)[0]) {
++        failf(conn->data, "that is not how you use streams");
++        *err = CURLE_OPERATION_TIMEDOUT;
++        return -1;
++      }
++      retry = TRUE;
++    }
++    else {
++      /* check if the maximum stream sizes were queried */
++      if(BACKEND->stream_sizes.cbMaximumMessage == 0) {
++        sspi_status = s_pSecFn->QueryContextAttributes(
++          &BACKEND->ctxt->ctxt_handle,
++          SECPKG_ATTR_STREAM_SIZES,
++          &BACKEND->stream_sizes);
++        if(sspi_status != SEC_E_OK) {
++          *err = CURLE_SEND_ERROR;
++          return -1;
++        }
++      }
++
++      /* check if the buffer is longer than the maximum message length */
++      len_chunk = len;
++      if (len_chunk > BACKEND->stream_sizes.cbMaximumMessage) {
++        len_chunk = BACKEND->stream_sizes.cbMaximumMessage;
++      }
++
++      /* calculate the complete message length and allocate a buffer for it */
++      BACKEND->send_buffer = (unsigned char *) malloc(
++        BACKEND->stream_sizes.cbHeader + len_chunk + BACKEND->stream_sizes.cbTrailer);
++      if(BACKEND->send_buffer == NULL) {
++        *err = CURLE_OUT_OF_MEMORY;
++        return -1;
++      }
++
++      /* setup output buffers (header, data, trailer, empty) */
++      InitSecBuffer(&outbuf[0], SECBUFFER_STREAM_HEADER,
++                    BACKEND->send_buffer, BACKEND->stream_sizes.cbHeader);
++      InitSecBuffer(&outbuf[1], SECBUFFER_DATA,
++                    BACKEND->send_buffer + BACKEND->stream_sizes.cbHeader, curlx_uztoul(len_chunk));
++      InitSecBuffer(&outbuf[2], SECBUFFER_STREAM_TRAILER,
++                    BACKEND->send_buffer + BACKEND->stream_sizes.cbHeader + len_chunk,
++                    BACKEND->stream_sizes.cbTrailer);
++      InitSecBuffer(&outbuf[3], SECBUFFER_EMPTY, NULL, 0);
++      InitSecBufferDesc(&outbuf_desc, outbuf, 4);
++
++      /* copy data into output buffer */
++      memcpy(outbuf[1].pvBuffer, buf, len_chunk);
++
++      /* https://msdn.microsoft.com/en-us/library/windows/desktop/aa375390.aspx */
++      sspi_status = s_pSecFn->EncryptMessage(&BACKEND->ctxt->ctxt_handle, 0,
++                                             &outbuf_desc, 0);
++
++      /* check if the message was encrypted */
++      if (sspi_status != SEC_E_OK) {
++        *err = CURLE_SEND_ERROR;
++        if(sspi_status == SEC_E_INSUFFICIENT_MEMORY) {
++          *err = CURLE_OUT_OF_MEMORY;
++        }
++        Curl_safefree(BACKEND->send_buffer);
++        return -1;
++      }
++
++      /* send the encrypted message including header, data and trailer */
++      BACKEND->send_buffer_len = outbuf[0].cbBuffer + outbuf[1].cbBuffer + outbuf[2].cbBuffer;
++      BACKEND->send_buffer_cur = 0;
++    }
++
++    ssize_t written_chunk = 0;
++
++    /* send entire message or fail */
++    while(BACKEND->send_buffer_len > BACKEND->send_buffer_cur) {
++      ssize_t this_write;
++      timediff_t timeleft;
++      int what;
++
++      this_write = 0;
++
++      bool timed_out = FALSE;
++      timeleft = Curl_timeleft(conn->data, NULL, FALSE);
++      if(timeleft < 0) {
++        /* we already got the timeout */
++        timed_out = TRUE;
++      }
++
++      if (!timed_out) {
++        what = SOCKET_WRITABLE(conn->sock[sockindex], timeleft);
++        if(what < 0) {
++          /* fatal error */
++          failf(conn->data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
++          *err = CURLE_SEND_ERROR;
++          Curl_safefree(BACKEND->send_buffer);
++          return -1;
++        }
++        else if(0 == what) {
++          timed_out = TRUE;
++        }
++      }
++      if (timed_out) {
++        *err = CURLE_AGAIN;
++        if (retry) {
++          written_chunk = 0;
++        }
++        else {
++          written_chunk = len_chunk - 1;
++          BACKEND->send_last_byte = ((const unsigned char *)buf)[written_chunk];
++        }
++        break;
++      }
++      /* socket is writable */
++
++      result = Curl_write_plain(conn, conn->sock[sockindex], BACKEND->send_buffer + BACKEND->send_buffer_cur,
++                                BACKEND->send_buffer_len - BACKEND->send_buffer_cur, &this_write);
++      if(result == CURLE_AGAIN)
++        continue;
++      else if(result != CURLE_OK) {
++        *err = result;
++        Curl_safefree(BACKEND->send_buffer);
++        return -1;
++      }
++
++      BACKEND->send_buffer_cur += this_write;
++    }
++
++    if (BACKEND->send_buffer_cur == BACKEND->send_buffer_len) {
++      Curl_safefree(BACKEND->send_buffer);
++      if (retry) {
++        written_chunk = 1;
++      }
++      else {
++        written_chunk = len_chunk;
++      }
++
++      len -= written_chunk;
++      buf = (const void *)(((const unsigned char *)buf) + written_chunk);
++      go_again = TRUE;
++    }
++
++    written += written_chunk;
++  }
++
++  return written;
++}
++
+ static CURLcode Curl_schannel_connect_nonblocking(struct connectdata *conn,
+                                                   int sockindex, bool *done)
+ {
+@@ -2061,6 +2083,10 @@
+     Curl_safefree(BACKEND->ctxt);
+   }
+ 
++  if (BACKEND->send_buffer) {
++    Curl_safefree(BACKEND->send_buffer);
++  }
++
+   /* free SSPI Schannel API credential handle */
+   if(BACKEND->cred) {
+     /*
+diff -Naur curl-7.68.0.old/lib/vtls/schannel.h curl-7.68.0.new/lib/vtls/schannel.h
+--- curl-7.68.0.old/lib/vtls/schannel.h	2022-08-27 15:23:59.170944823 +0200
++++ curl-7.68.0.new/lib/vtls/schannel.h	2022-08-27 15:26:48.318949083 +0200
+@@ -92,6 +92,10 @@
+      can't be decrypted without another Curl_read_plain (that is, status is
+      SEC_E_INCOMPLETE_MESSAGE) then set this true. after Curl_read_plain writes
+      more bytes into encdata then set this back to false. */
++  unsigned char *send_buffer;
++  size_t send_buffer_len;
++  size_t send_buffer_cur;
++  unsigned char send_last_byte;
+   bool encdata_is_incomplete;
+   unsigned long req_flags, ret_flags;
+   CURLcode recv_unrecoverable_err; /* schannel_recv had an unrecoverable err */

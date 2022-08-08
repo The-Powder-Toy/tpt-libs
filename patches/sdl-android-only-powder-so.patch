@@ -1,0 +1,17 @@
+diff -Naur java.old/org/libsdl/app/SDLActivity.java java.new/org/libsdl/app/SDLActivity.java
+--- java.old/org/libsdl/app/SDLActivity.java	2022-08-27 08:58:55.510256193 +0200
++++ java.new/org/libsdl/app/SDLActivity.java	2022-08-27 08:59:07.840580908 +0200
+@@ -164,12 +164,7 @@
+      */
+     protected String[] getLibraries() {
+         return new String[] {
+-            "SDL2",
+-            // "SDL2_image",
+-            // "SDL2_mixer",
+-            // "SDL2_net",
+-            // "SDL2_ttf",
+-            "main"
++            "powder",
+         };
+     }
+ 

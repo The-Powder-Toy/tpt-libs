@@ -1,0 +1,16 @@
+diff -Naur LuaJIT-2.1.0-beta3.old/src/Makefile LuaJIT-2.1.0-beta3.new/src/Makefile
+--- LuaJIT-2.1.0-beta3.old/src/Makefile	2022-08-25 12:40:37.904382300 +0200
++++ LuaJIT-2.1.0-beta3.new/src/Makefile	2022-08-25 12:40:37.979678900 +0200
+@@ -71,10 +71,10 @@
+ # as dynamic mode.
+ #
+ # Mixed mode creates a static + dynamic library and a statically linked luajit.
+-BUILDMODE= mixed
++# BUILDMODE= mixed
+ #
+ # Static mode creates a static library and a statically linked luajit.
+-#BUILDMODE= static
++BUILDMODE= static
+ #
+ # Dynamic mode creates a dynamic library and a dynamically linked luajit.
+ # Note: this executable will only run when the library is installed!

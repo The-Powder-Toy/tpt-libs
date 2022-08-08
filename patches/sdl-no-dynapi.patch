@@ -1,0 +1,12 @@
+diff -Naur SDL2-2.0.20.old/src/dynapi/SDL_dynapi.h SDL2-2.0.20.new/src/dynapi/SDL_dynapi.h
+--- SDL2-2.0.20.old/src/dynapi/SDL_dynapi.h	2022-08-08 22:22:01.410746549 +0200
++++ SDL2-2.0.20.new/src/dynapi/SDL_dynapi.h	2022-08-08 22:22:26.181405974 +0200
+@@ -65,7 +65,7 @@
+ 
+ /* everyone else. This is where we turn on the API if nothing forced it off. */
+ #ifndef SDL_DYNAMIC_API
+-#define SDL_DYNAMIC_API 1
++// #define SDL_DYNAMIC_API 1
+ #endif
+ 
+ #endif

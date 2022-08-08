@@ -1,0 +1,92 @@
+name: build
+
+on:
+  push:
+    branches:
+      - 'test'
+    tags:
+      - 'v*' # TAGNAME=`date +v%Y%m%d%H%M%S` bash -c 'git tag -s -a $TAGNAME -m $TAGNAME'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+      do_release: ${{ steps.prepare.outputs.do_release }}
+      matrix: ${{ steps.prepare.outputs.matrix }}
+      vtag: ${{ steps.prepare.outputs.vtag }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      - id: prepare
+        run: python ./.github/prepare.py
+        env:
+          GITHUB_REF: ${{ github.ref }}
+      - if: steps.prepare.outputs.do_release == 'yes'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+  build:
+    runs-on: ${{ matrix.runs_on }}
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      - run: python -m pip install meson ninja
+      - if: matrix.bsh_build_platform == 'darwin'
+        run: brew install coreutils bash
+      - if: matrix.bsh_build_platform == 'linux'
+        run: sudo apt update && sudo apt install libc6-dev libc6-dev-i386
+      - run: bash -c './build.sh'
+        env:
+          BSH_HOST_ARCH: ${{ matrix.bsh_host_arch }}
+          BSH_HOST_PLATFORM: ${{ matrix.bsh_host_platform }}
+          BSH_HOST_LIBC: ${{ matrix.bsh_host_libc }}
+          BSH_STATIC_DYNAMIC: ${{ matrix.bsh_static_dynamic }}
+          BSH_BUILD_PLATFORM: ${{ matrix.bsh_build_platform }}
+          BSH_DEBUG_RELEASE: ${{ matrix.bsh_debug_release }}
+          BSH_VTAG: ${{ needs.prepare.outputs.vtag }}
+      - if: needs.prepare.outputs.do_release == 'yes'
+        id: upload_release_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.prepare.outputs.release_upload_url }}
+          asset_path: temp/libraries.zip
+          asset_name: ${{ matrix.asset_name }}.zip
+          asset_content_type: application/zip
+      - if: needs.prepare.outputs.do_release == 'yes'
+        run: bash -c './wrapfile.sh'
+        env:
+          BSH_HOST_ARCH: ${{ matrix.bsh_host_arch }}
+          BSH_HOST_PLATFORM: ${{ matrix.bsh_host_platform }}
+          BSH_HOST_LIBC: ${{ matrix.bsh_host_libc }}
+          BSH_STATIC_DYNAMIC: ${{ matrix.bsh_static_dynamic }}
+          BSH_BUILD_PLATFORM: ${{ matrix.bsh_build_platform }}
+          BSH_DEBUG_RELEASE: ${{ matrix.bsh_debug_release }}
+          BSH_VTAG: ${{ needs.prepare.outputs.vtag }}
+          ASSET_URL: ${{ steps.upload_release_asset.outputs.browser_download_url }}
+      - if: needs.prepare.outputs.do_release == 'yes'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.prepare.outputs.release_upload_url }}
+          asset_path: temp/libraries.wrap
+          asset_name: ${{ matrix.asset_name }}.wrap
+          asset_content_type: text/plain
+
