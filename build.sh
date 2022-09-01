@@ -142,6 +142,11 @@ else
 	export CC=gcc
 	export CXX=g++
 fi
+CFLAGS=
+if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC != windows-msvc ]]; then
+	CFLAGS+=" -ffunction-sections -fdata-sections"
+fi
+export CFLAGS
 
 function check_program() {
 	local program_name=$1
@@ -356,7 +361,7 @@ function compile_libpng() {
 		windows_msvc_static_mt
 	fi
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
-		good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING= -fno-asynchronous-unwind-tables|g' CMakeCache.txt
+		good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-fno-asynchronous-unwind-tables |g' CMakeCache.txt
 	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
@@ -502,7 +507,7 @@ function compile_lua5x() {
 	else
 		local make_configure=$make
 		make_configure+=$'\t'CC=" $CXX" # original is gcc
-		local lua_cflags=" -g -x c++"
+		local lua_cflags=" -g -x c++"$CFLAGS
 		if [[ $BSH_HOST_PLATFORM == darwin ]]; then
 			lua_cflags+=" -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
 		fi
@@ -655,7 +660,7 @@ function compile_fftw() {
 		windows_msvc_static_mt
 	fi
 	good_sed 's|HAVE_ALLOCA:INTERNAL=1|HAVE_ALLOCA:INTERNAL=0|g' CMakeCache.txt
-	good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-DWITH_OUR_MALLOC|g' CMakeCache.txt
+	good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-DWITH_OUR_MALLOC |g' CMakeCache.txt
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
