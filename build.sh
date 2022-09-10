@@ -4,14 +4,18 @@ set -euo pipefail
 shopt -s globstar
 IFS=$'\n\t'
 
-# TODO: check if libs have debug info
-# TODO: check if release libs are optimized
-# TODO: check if static libs are static
-# TODO: check if only necessary files are packaged
-# TODO: check if windows libs use the same crt as the exe
-# TODO: check if exes can be run from build sites
-# TODO: check if luas are c++-aware
-# TODO: check if libcurl uses zlib
+# TODO: fix breakage when there are spaces in the path
+# TODO: add openssl
+
+# goals:
+#  - libs have debug info
+#  - release libs are optimized
+#  - static libs are static
+#  - only necessary files are packaged
+#  - windows libs use the same crt as the exe
+#  - exes can be run from build sites
+#  - luas are c++-aware
+#  - libcurl uses zlib
 
 . ./common.sh
 
@@ -228,11 +232,32 @@ function good_sed() {
 	fi
 }
 
+function add_install_flags() {
+	declare -n cmake_configure_ptr=$1
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_LIBDIR=lib
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_INCLUDEDIR=include
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_BINDIR=bin
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_SBINDIR=junk.sbindir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_LIBEXECDIR=junk.libexecdir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_SYSCONFDIR=junk.sysconfdir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_SHAREDSTATEDIR=junk.sharedstatedir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_LOCALSTATEDIR=junk.localstatedir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_RUNSTATEDIR=junk.runstatedir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_OLDINCLUDEDIR=junk.oldincludedir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_DATAROOTDIR=junk.datarootdir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_DATADIR=junk.datadir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_INFODIR=junk.infodir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_LOCALEDIR=junk.localedir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_MANDIR=junk.mandir
+	cmake_configure_ptr+=$'\t'-DCMAKE_INSTALL_DOCDIR=junk.docdir
+}
+
 function add_android_flags() {
-	declare -n cmake_configure=$1
-	cmake_configure+=$'\t'-DANDROID_ABI=$android_arch_abi
-	cmake_configure+=$'\t'-DANDROID_PLATFORM=android-$android_system_version
-	cmake_configure+=$'\t'-DCMAKE_TOOLCHAIN_FILE=$(export_path $ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake)
+	declare -n cmake_configure_ptr=$1
+	cmake_configure_ptr+=$'\t'-DANDROID_ABI=$android_arch_abi
+	cmake_configure_ptr+=$'\t'-DANDROID_PLATFORM=android-$android_system_version
+	cmake_configure_ptr+=$'\t'-DCMAKE_TOOLCHAIN_FILE=$(export_path $ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake)
 }
 
 function patch_breakpoint() {
@@ -306,11 +331,12 @@ function windows_msvc_static_mt() {
 
 function compile_zlib() {
 	get_and_cd zlib-1.2.11.tar.gz # acquired from https://zlib.net/zlib-1.2.11.tar.gz
+	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
 	mkdir build
-	local cmake_configure=cmake
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
-	cmake_configure+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	add_install_flags cmake_configure
 	cd build
 	VERBOSE=1 $cmake_configure ..
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
@@ -329,11 +355,12 @@ function compile_zlib() {
 
 function compile_libpng() {
 	get_and_cd libpng-1.6.37.tar.gz # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
+	patch_breakpoint $patches_real/libpng-install-dirs.patch apply
 	mkdir build
-	cmake_configure=cmake # not local because add_android_flags can't deal with that
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
-	cmake_configure+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DPNG_BUILD_ZLIB=ON
 	cmake_configure+=$'\t'-DZLIB_INCLUDE_DIR=$(export_path $zip_root_real/include)
 	if [[ $BSH_HOST_ARCH == arm ]] || [[ $BSH_HOST_ARCH == aarch64 ]]; then
@@ -380,11 +407,11 @@ function compile_curl() {
 	fi
 	get_and_cd curl-7.68.0.tar.gz # acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
 	mkdir build
-	local cmake_configure=cmake
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DBUILD_TESTING=OFF
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
-	cmake_configure+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DCMAKE_USE_LIBSSH2=OFF
 	cmake_configure+=$'\t'-DBUILD_CURL_EXE=OFF
 	cmake_configure+=$'\t'-DHTTP_ONLY=ON
@@ -422,10 +449,10 @@ function compile_sdl2() {
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
 	mkdir build
-	cmake_configure=cmake # not local because add_android_flags can't deal with that
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
-	cmake_configure+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DSDL_AUDIO=OFF
 	cmake_configure+=$'\t'-DSDL_POWER=OFF
 	cmake_configure+=$'\t'-DSDL_LIBC=ON
@@ -634,10 +661,10 @@ function compile_luajit() {
 function compile_fftw() {
 	get_and_cd fftw-3.3.8.tar.gz # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
 	mkdir build
-	cmake_configure=cmake # not local because add_android_flags can't deal with that
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
-	cmake_configure+=$'\t'-DCMAKE_INSTALL_PREFIX=$(export_path $zip_root_real)
+	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DDISABLE_FORTRAN=ON
 	cmake_configure+=$'\t'-DENABLE_FLOAT=ON
 	case $BSH_HOST_ARCH in
@@ -672,136 +699,61 @@ function compile_fftw() {
 	uncd_and_unget
 }
 
-compile_zlib # must precede compile_curl and compile_libpng
-compile_libpng
-compile_curl
-compile_sdl2
-compile_fftw
-compile_lua51
-compile_lua52
-compile_luajit
+function compile() {
+	local what=$1 # $2 and up hold names of libraries that have to be compiled before $what
+	declare -n status=status_$what
+	if [[ ${status:-} == compiling ]]; then
+		>&2 echo "recursive dependency"
+		exit 1
+	fi
+	if [[ ${status:-} == compiled ]]; then
+		return
+	fi
+	shift
+	while ! [[ -z "${1:-}" ]]; do
+		dependency=$1
+		compile $dependency
+		shift
+	done
+	status=compiling
+	eval "compile_$what"
+	status=compiled
+}
+
+compile zlib
+compile libpng zlib
+compile curl zlib
+compile sdl2
+compile fftw
+compile lua51
+compile lua52
+compile luajit
 
 cd $temp_dir/$zip_root
 
-case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
-x86-android-bionic-static)
-	;&
-x86_64-android-bionic-static)
-	;&
-arm-android-bionic-static)
-	;&
-aarch64-android-bionic-static)
-	rm -r bin/*-config
-	rm -r include/*.{f,f03}
-	rm -r include/libpng16
-	rm -r lib/cmake
-	rm -r lib/libpng # cmake files
-	rm -r lib/libpng.a
-	rm -r lib/libz*.so
-	rm -r lib/pkgconfig
-	rm -r lua{5.1,5.2}/bin
-	rm -r lua{5.1,5.2}/man
-	rm -r share
-	;;
-
-x86_64-darwin-macos-static)
-	;&
-aarch64-darwin-macos-static)
-	rm -r bin/*-config
-	rm -r include/*.{f,f03}
-	rm -r include/libpng16
-	rm -r lib/cmake
-	rm -r lib/libpng # cmake files
-	rm -r lib/libpng.a
-	rm -r lib/libz*.dylib
-	rm -r lib/pkgconfig
-	rm -r lua{5.1,5.2}/bin
-	rm -r lua{5.1,5.2}/man
-	rm -r share
-	;;
-
-x86_64-windows-mingw-static)
-	;&
-x86_64-windows-mingw-dynamic)
-	rm -r include/*.{f,f03}
-	rm -r include/libpng16
-	rm -r lib/cmake
-	rm -r lib/libpng # cmake files
-	rm -r lib/libpng.a
-	rm -r lib/pkgconfig
-	rm -r lua{5.1,5.2}/lib/lua # empty
-	rm -r lua{5.1,5.2}/man
-	rm -r share
+set +e
+shopt -s nullglob
+for junk in \
+	{.,./lua5.1,./lua5.2}/{bin/*.exe,bin/*-config,bin/{lua,luac},man,share,lib/lua} \
+	junk.* \
+	include/*.{f,f03} \
+	include/libpng16 \
+	lib/{cmake,libpng,pkgconfig} \
+; do
+	rm -r $junk
+done
+if [[ $BSH_HOST_PLATFORM == windows ]]; then
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
-		rm -r bin
-		rm -r lua{5.1,5.2}/bin
-		rm -r lib/libzlib.dll.a
-	else
-		rm -r bin/*-config
-		rm -r lib/libcurl$debug_hd"_imp".lib
-		rm -r lib/libfftw3f.dll.a
-		rm -r lib/libpng16$debug_d.a
-		rm -r lib/libpng16$debug_d.dll.a
-		rm -r lib/libSDL2$debug_d.dll.a
-		rm -r lib/libzlib.dll.a
-		rm -r lua{5.1,5.2}/bin/*.exe
-		rm -r lua{5.1,5.2}/lib
-		rm -r bin/png-fix-itxt.exe
-		rm -r bin/pngfix.exe
-		rm -r lib/libpng.dll.a
-		rm -r lib/libzlibstatic.a
+		for junk in lib/libz*dll*; do rm -r $junk; done
 	fi
-	;;
-
-x86_64-linux-gnu-static)
-	rm -r bin
-	rm -r include/*.{f,f03}
-	rm -r lib/cmake
-	rm -r lib/libpng # cmake files
-	rm -r lib/libpng.a # symlink to libpng16.a
-	rm -r lib/libz.so*
-	rm -r lib/pkgconfig
-	rm -r lua{5.1,5.2}/bin
-	rm -r lua{5.1,5.2}/lib/lua # empty
-	rm -r lua{5.1,5.2}/man
-	rm -r lua{5.1,5.2}/share
-	rm -r share
-	;;
-
-x86-windows-msvc-static)
-	;&
-x86-windows-msvc-dynamic)
-	;&
-x86_64-windows-msvc-static)
-	;&
-x86_64-windows-msvc-dynamic)
-	rm -r cmake
-	rm -r include/*.{f,f03}
-	rm -r lib/cmake
-	rm -r lib/libpng # cmake files
-	rm -r lib/pkgconfig
-	rm -r share
-	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
-		rm -r bin
-		rm -r lib/zlib$debug_d.pdb
-		rm -r lib/zlib$debug_d.lib
-	else
-		rm -r bin/*.exe
-		rm -r bin/*-config
-		rm -r lib/libpng16_static$debug_d.lib
-		rm -r lib/png-fix-itxt.pdb
-		rm -r lib/pngfix.pdb
-		rm -r lib/pngimage.pdb
-		rm -r lib/pngstest.pdb
-		rm -r lib/pngtest.pdb
-		rm -r lib/pngunknown.pdb
-		rm -r lib/pngvalid.pdb
-		rm -r lib/png_static.pdb
-		rm -r lib/zlibstatic.pdb
-		rm -r lib/zlibstatic$debug_d.lib
-	fi
-	;;
-esac
+elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
+	for junk in lib/libz*dylib*; do rm -r $junk; done
+else
+	for junk in lib/libz*so*; do rm -r $junk; done
+fi
+find . -type d -empty -delete
+shopt -u nullglob
+set -e
 
 cd ..
 7z a -bb3 $zip_out $zip_root
