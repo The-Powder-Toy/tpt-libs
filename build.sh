@@ -734,7 +734,7 @@ cd $temp_dir/$zip_root
 set +e
 shopt -s nullglob
 for junk in \
-	{.,./lua5.1,./lua5.2}/{bin/*.exe,bin/*-config,bin/{lua,luac},man,share,lib/lua} \
+	{.,./lua5.1,./lua5.2}/{bin/*.exe,bin/*-config,bin/{lua,luac},man,cmake,share,lib/lua} \
 	junk.* \
 	include/*.{f,f03} \
 	include/libpng16 \
@@ -743,14 +743,41 @@ for junk in \
 	rm -r $junk
 done
 if [[ $BSH_HOST_PLATFORM == windows ]]; then
-	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
-		for junk in lib/libz*dll*; do rm -r $junk; done
-	fi
+	case $BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
+	msvc-static) rm \
+		lib/libz*dll* \
+		bin/zlib$debug_d.dll \
+		lib/zlib$debug_d.lib \
+		lib/zlib$debug_d.pdb;;
+	msvc-dynamic) rm \
+		lib/png-fix-itxt.pdb \
+		lib/pngfix.pdb \
+		lib/pngimage.pdb \
+		lib/pngstest.pdb \
+		lib/pngtest.pdb \
+		lib/pngunknown.pdb \
+		lib/pngvalid.pdb \
+		lib/png_static.pdb \
+		lib/libpng16_static$debug_d.lib \
+		lib/zlibstatic$debug_d.lib \
+		lib/zlibstatic.pdb;;
+	mingw-static) rm \
+		lib/libz*dll* \
+		lib/libpng.dll.a \
+		lib/libpng.a \
+		bin/libzlib.dll;;
+	mingw-dynamic) rm \
+		lib/libpng.a \
+		lib/libzlibstatic.a \
+		lib/libpng16$debug_d.a \
+		lib/libpng.dll.a;;
+	esac
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	for junk in lib/libz*dylib*; do rm -r $junk; done
 else
 	for junk in lib/libz*so*; do rm -r $junk; done
 fi
+
 find . -type d -empty -delete
 shopt -u nullglob
 set -e
