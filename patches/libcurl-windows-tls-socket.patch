@@ -1,28 +1,32 @@
-diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel.c
---- curl-7.68.0.old/lib/vtls/schannel.c	2022-08-27 15:23:59.170944823 +0200
-+++ curl-7.68.0.new/lib/vtls/schannel.c	2022-08-27 15:28:40.222039257 +0200
-@@ -1462,151 +1462,6 @@
+diff -Naur curl-7.85.0.old/lib/vtls/schannel.c curl-7.85.0.new/lib/vtls/schannel.c
+--- curl-7.85.0.old/lib/vtls/schannel.c	2022-09-20 13:50:11.915625100 +0200
++++ curl-7.85.0.new/lib/vtls/schannel.c	2022-09-20 13:50:12.103118600 +0200
+@@ -1933,152 +1933,6 @@
  }
  
  static ssize_t
--schannel_send(struct connectdata *conn, int sockindex,
+-schannel_send(struct Curl_easy *data, int sockindex,
 -              const void *buf, size_t len, CURLcode *err)
 -{
 -  ssize_t written = -1;
 -  size_t data_len = 0;
--  unsigned char *data = NULL;
+-  unsigned char *ptr = NULL;
+-  struct connectdata *conn = data->conn;
 -  struct ssl_connect_data *connssl = &conn->ssl[sockindex];
 -  SecBuffer outbuf[4];
 -  SecBufferDesc outbuf_desc;
 -  SECURITY_STATUS sspi_status = SEC_E_OK;
 -  CURLcode result;
+-  struct ssl_backend_data *backend = connssl->backend;
+-
+-  DEBUGASSERT(backend);
 -
 -  /* check if the maximum stream sizes were queried */
--  if(BACKEND->stream_sizes.cbMaximumMessage == 0) {
+-  if(backend->stream_sizes.cbMaximumMessage == 0) {
 -    sspi_status = s_pSecFn->QueryContextAttributes(
--      &BACKEND->ctxt->ctxt_handle,
+-      &backend->ctxt->ctxt_handle,
 -      SECPKG_ATTR_STREAM_SIZES,
--      &BACKEND->stream_sizes);
+-      &backend->stream_sizes);
 -    if(sspi_status != SEC_E_OK) {
 -      *err = CURLE_SEND_ERROR;
 -      return -1;
@@ -30,27 +34,27 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -  }
 -
 -  /* check if the buffer is longer than the maximum message length */
--  if(len > BACKEND->stream_sizes.cbMaximumMessage) {
--    len = BACKEND->stream_sizes.cbMaximumMessage;
+-  if(len > backend->stream_sizes.cbMaximumMessage) {
+-    len = backend->stream_sizes.cbMaximumMessage;
 -  }
 -
 -  /* calculate the complete message length and allocate a buffer for it */
--  data_len = BACKEND->stream_sizes.cbHeader + len +
--    BACKEND->stream_sizes.cbTrailer;
--  data = (unsigned char *) malloc(data_len);
--  if(data == NULL) {
+-  data_len = backend->stream_sizes.cbHeader + len +
+-    backend->stream_sizes.cbTrailer;
+-  ptr = (unsigned char *) malloc(data_len);
+-  if(!ptr) {
 -    *err = CURLE_OUT_OF_MEMORY;
 -    return -1;
 -  }
 -
 -  /* setup output buffers (header, data, trailer, empty) */
 -  InitSecBuffer(&outbuf[0], SECBUFFER_STREAM_HEADER,
--                data, BACKEND->stream_sizes.cbHeader);
+-                ptr, backend->stream_sizes.cbHeader);
 -  InitSecBuffer(&outbuf[1], SECBUFFER_DATA,
--                data + BACKEND->stream_sizes.cbHeader, curlx_uztoul(len));
+-                ptr + backend->stream_sizes.cbHeader, curlx_uztoul(len));
 -  InitSecBuffer(&outbuf[2], SECBUFFER_STREAM_TRAILER,
--                data + BACKEND->stream_sizes.cbHeader + len,
--                BACKEND->stream_sizes.cbTrailer);
+-                ptr + backend->stream_sizes.cbHeader + len,
+-                backend->stream_sizes.cbTrailer);
 -  InitSecBuffer(&outbuf[3], SECBUFFER_EMPTY, NULL, 0);
 -  InitSecBufferDesc(&outbuf_desc, outbuf, 4);
 -
@@ -58,7 +62,7 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -  memcpy(outbuf[1].pvBuffer, buf, len);
 -
 -  /* https://msdn.microsoft.com/en-us/library/windows/desktop/aa375390.aspx */
--  sspi_status = s_pSecFn->EncryptMessage(&BACKEND->ctxt->ctxt_handle, 0,
+-  sspi_status = s_pSecFn->EncryptMessage(&backend->ctxt->ctxt_handle, 0,
 -                                         &outbuf_desc, 0);
 -
 -  /* check if the message was encrypted */
@@ -86,32 +90,29 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -
 -    /* send entire message or fail */
 -    while(len > (size_t)written) {
--      ssize_t this_write;
--      timediff_t timeleft;
+-      ssize_t this_write = 0;
 -      int what;
--
--      this_write = 0;
--
--      timeleft = Curl_timeleft(conn->data, NULL, FALSE);
--      if(timeleft < 0) {
+-      timediff_t timeout_ms = Curl_timeleft(data, NULL, FALSE);
+-      if(timeout_ms < 0) {
 -        /* we already got the timeout */
--        failf(conn->data, "schannel: timed out sending data "
+-        failf(data, "schannel: timed out sending data "
 -              "(bytes sent: %zd)", written);
 -        *err = CURLE_OPERATION_TIMEDOUT;
 -        written = -1;
 -        break;
 -      }
--
--      what = SOCKET_WRITABLE(conn->sock[sockindex], timeleft);
+-      else if(!timeout_ms)
+-        timeout_ms = TIMEDIFF_T_MAX;
+-      what = SOCKET_WRITABLE(conn->sock[sockindex], timeout_ms);
 -      if(what < 0) {
 -        /* fatal error */
--        failf(conn->data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
+-        failf(data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
 -        *err = CURLE_SEND_ERROR;
 -        written = -1;
 -        break;
 -      }
 -      else if(0 == what) {
--        failf(conn->data, "schannel: timed out sending data "
+-        failf(data, "schannel: timed out sending data "
 -              "(bytes sent: %zd)", written);
 -        *err = CURLE_OPERATION_TIMEDOUT;
 -        written = -1;
@@ -119,7 +120,7 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -      }
 -      /* socket is writable */
 -
--      result = Curl_write_plain(conn, conn->sock[sockindex], data + written,
+-      result = Curl_write_plain(data, conn->sock[sockindex], ptr + written,
 -                                len - written, &this_write);
 -      if(result == CURLE_AGAIN)
 -        continue;
@@ -139,7 +140,7 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -    *err = CURLE_SEND_ERROR;
 -  }
 -
--  Curl_safefree(data);
+-  Curl_safefree(ptr);
 -
 -  if(len == (size_t)written)
 -    /* Encrypted message including header, data and trailer entirely sent.
@@ -150,17 +151,18 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 -}
 -
 -static ssize_t
- schannel_recv(struct connectdata *conn, int sockindex,
+ schannel_recv(struct Curl_easy *data, int sockindex,
                char *buf, size_t len, CURLcode *err)
  {
-@@ -1928,6 +1783,173 @@
+@@ -2400,6 +2254,178 @@
    return *err ? -1 : 0;
  }
  
 +static ssize_t
-+schannel_send(struct connectdata *conn, int sockindex,
++schannel_send(struct Curl_easy *data, int sockindex,
 +              const void *buf, size_t len, CURLcode *err)
 +{
++  struct connectdata *conn = data->conn;
 +  ssize_t written = 0;
 +  bool go_again = TRUE;
 +  while (go_again) {
@@ -173,6 +175,8 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +    }
 +
 +    struct ssl_connect_data *connssl = &conn->ssl[sockindex];
++    struct ssl_backend_data *backend = connssl->backend;
++    DEBUGASSERT(backend);
 +    SecBuffer outbuf[4];
 +    SecBufferDesc outbuf_desc;
 +    SECURITY_STATUS sspi_status = SEC_E_OK;
@@ -180,9 +184,9 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +
 +    size_t len_chunk = 0;
 +    bool retry = FALSE;
-+    if (BACKEND->send_buffer != NULL) {
-+      if (BACKEND->send_last_byte != ((const unsigned char *)buf)[0]) {
-+        failf(conn->data, "that is not how you use streams");
++    if (backend->send_buffer != NULL) {
++      if (backend->send_last_byte != ((const unsigned char *)buf)[0]) {
++        failf(data, "that is not how you use streams");
 +        *err = CURLE_OPERATION_TIMEDOUT;
 +        return -1;
 +      }
@@ -190,11 +194,11 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +    }
 +    else {
 +      /* check if the maximum stream sizes were queried */
-+      if(BACKEND->stream_sizes.cbMaximumMessage == 0) {
++      if(backend->stream_sizes.cbMaximumMessage == 0) {
 +        sspi_status = s_pSecFn->QueryContextAttributes(
-+          &BACKEND->ctxt->ctxt_handle,
++          &backend->ctxt->ctxt_handle,
 +          SECPKG_ATTR_STREAM_SIZES,
-+          &BACKEND->stream_sizes);
++          &backend->stream_sizes);
 +        if(sspi_status != SEC_E_OK) {
 +          *err = CURLE_SEND_ERROR;
 +          return -1;
@@ -203,26 +207,26 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +
 +      /* check if the buffer is longer than the maximum message length */
 +      len_chunk = len;
-+      if (len_chunk > BACKEND->stream_sizes.cbMaximumMessage) {
-+        len_chunk = BACKEND->stream_sizes.cbMaximumMessage;
++      if (len_chunk > backend->stream_sizes.cbMaximumMessage) {
++        len_chunk = backend->stream_sizes.cbMaximumMessage;
 +      }
 +
 +      /* calculate the complete message length and allocate a buffer for it */
-+      BACKEND->send_buffer = (unsigned char *) malloc(
-+        BACKEND->stream_sizes.cbHeader + len_chunk + BACKEND->stream_sizes.cbTrailer);
-+      if(BACKEND->send_buffer == NULL) {
++      backend->send_buffer = (unsigned char *) malloc(
++        backend->stream_sizes.cbHeader + len_chunk + backend->stream_sizes.cbTrailer);
++      if(backend->send_buffer == NULL) {
 +        *err = CURLE_OUT_OF_MEMORY;
 +        return -1;
 +      }
 +
 +      /* setup output buffers (header, data, trailer, empty) */
 +      InitSecBuffer(&outbuf[0], SECBUFFER_STREAM_HEADER,
-+                    BACKEND->send_buffer, BACKEND->stream_sizes.cbHeader);
++                    backend->send_buffer, backend->stream_sizes.cbHeader);
 +      InitSecBuffer(&outbuf[1], SECBUFFER_DATA,
-+                    BACKEND->send_buffer + BACKEND->stream_sizes.cbHeader, curlx_uztoul(len_chunk));
++                    backend->send_buffer + backend->stream_sizes.cbHeader, curlx_uztoul(len_chunk));
 +      InitSecBuffer(&outbuf[2], SECBUFFER_STREAM_TRAILER,
-+                    BACKEND->send_buffer + BACKEND->stream_sizes.cbHeader + len_chunk,
-+                    BACKEND->stream_sizes.cbTrailer);
++                    backend->send_buffer + backend->stream_sizes.cbHeader + len_chunk,
++                    backend->stream_sizes.cbTrailer);
 +      InitSecBuffer(&outbuf[3], SECBUFFER_EMPTY, NULL, 0);
 +      InitSecBufferDesc(&outbuf_desc, outbuf, 4);
 +
@@ -230,7 +234,7 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +      memcpy(outbuf[1].pvBuffer, buf, len_chunk);
 +
 +      /* https://msdn.microsoft.com/en-us/library/windows/desktop/aa375390.aspx */
-+      sspi_status = s_pSecFn->EncryptMessage(&BACKEND->ctxt->ctxt_handle, 0,
++      sspi_status = s_pSecFn->EncryptMessage(&backend->ctxt->ctxt_handle, 0,
 +                                             &outbuf_desc, 0);
 +
 +      /* check if the message was encrypted */
@@ -239,19 +243,19 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +        if(sspi_status == SEC_E_INSUFFICIENT_MEMORY) {
 +          *err = CURLE_OUT_OF_MEMORY;
 +        }
-+        Curl_safefree(BACKEND->send_buffer);
++        Curl_safefree(backend->send_buffer);
 +        return -1;
 +      }
 +
 +      /* send the encrypted message including header, data and trailer */
-+      BACKEND->send_buffer_len = outbuf[0].cbBuffer + outbuf[1].cbBuffer + outbuf[2].cbBuffer;
-+      BACKEND->send_buffer_cur = 0;
++      backend->send_buffer_len = outbuf[0].cbBuffer + outbuf[1].cbBuffer + outbuf[2].cbBuffer;
++      backend->send_buffer_cur = 0;
 +    }
 +
 +    ssize_t written_chunk = 0;
 +
 +    /* send entire message or fail */
-+    while(BACKEND->send_buffer_len > BACKEND->send_buffer_cur) {
++    while(backend->send_buffer_len > backend->send_buffer_cur) {
 +      ssize_t this_write;
 +      timediff_t timeleft;
 +      int what;
@@ -259,19 +263,21 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +      this_write = 0;
 +
 +      bool timed_out = FALSE;
-+      timeleft = Curl_timeleft(conn->data, NULL, FALSE);
++      timeleft = Curl_timeleft(data, NULL, FALSE);
 +      if(timeleft < 0) {
 +        /* we already got the timeout */
 +        timed_out = TRUE;
 +      }
++      else if(!timeleft)
++        timeleft = TIMEDIFF_T_MAX;
 +
 +      if (!timed_out) {
 +        what = SOCKET_WRITABLE(conn->sock[sockindex], timeleft);
 +        if(what < 0) {
 +          /* fatal error */
-+          failf(conn->data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
++          failf(data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
 +          *err = CURLE_SEND_ERROR;
-+          Curl_safefree(BACKEND->send_buffer);
++          Curl_safefree(backend->send_buffer);
 +          return -1;
 +        }
 +        else if(0 == what) {
@@ -285,27 +291,27 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +        }
 +        else {
 +          written_chunk = len_chunk - 1;
-+          BACKEND->send_last_byte = ((const unsigned char *)buf)[written_chunk];
++          backend->send_last_byte = ((const unsigned char *)buf)[written_chunk];
 +        }
 +        break;
 +      }
 +      /* socket is writable */
 +
-+      result = Curl_write_plain(conn, conn->sock[sockindex], BACKEND->send_buffer + BACKEND->send_buffer_cur,
-+                                BACKEND->send_buffer_len - BACKEND->send_buffer_cur, &this_write);
++      result = Curl_write_plain(data, conn->sock[sockindex], backend->send_buffer + backend->send_buffer_cur,
++                                backend->send_buffer_len - backend->send_buffer_cur, &this_write);
 +      if(result == CURLE_AGAIN)
 +        continue;
 +      else if(result != CURLE_OK) {
 +        *err = result;
-+        Curl_safefree(BACKEND->send_buffer);
++        Curl_safefree(backend->send_buffer);
 +        return -1;
 +      }
 +
-+      BACKEND->send_buffer_cur += this_write;
++      backend->send_buffer_cur += this_write;
 +    }
 +
-+    if (BACKEND->send_buffer_cur == BACKEND->send_buffer_len) {
-+      Curl_safefree(BACKEND->send_buffer);
++    if (backend->send_buffer_cur == backend->send_buffer_len) {
++      Curl_safefree(backend->send_buffer);
 +      if (retry) {
 +        written_chunk = 1;
 +      }
@@ -324,24 +330,24 @@ diff -Naur curl-7.68.0.old/lib/vtls/schannel.c curl-7.68.0.new/lib/vtls/schannel
 +  return written;
 +}
 +
- static CURLcode Curl_schannel_connect_nonblocking(struct connectdata *conn,
-                                                   int sockindex, bool *done)
- {
-@@ -2061,6 +2083,10 @@
-     Curl_safefree(BACKEND->ctxt);
+ static CURLcode schannel_connect_nonblocking(struct Curl_easy *data,
+                                              struct connectdata *conn,
+                                              int sockindex, bool *done)
+@@ -2533,6 +2559,10 @@
+     Curl_safefree(backend->ctxt);
    }
  
-+  if (BACKEND->send_buffer) {
-+    Curl_safefree(BACKEND->send_buffer);
++  if(backend->send_buffer) {
++    Curl_safefree(backend->send_buffer);
 +  }
 +
    /* free SSPI Schannel API credential handle */
-   if(BACKEND->cred) {
-     /*
-diff -Naur curl-7.68.0.old/lib/vtls/schannel.h curl-7.68.0.new/lib/vtls/schannel.h
---- curl-7.68.0.old/lib/vtls/schannel.h	2022-08-27 15:23:59.170944823 +0200
-+++ curl-7.68.0.new/lib/vtls/schannel.h	2022-08-27 15:26:48.318949083 +0200
-@@ -92,6 +92,10 @@
+   if(backend->cred) {
+     Curl_ssl_sessionid_lock(data);
+diff -Naur curl-7.85.0.old/lib/vtls/schannel.h curl-7.85.0.new/lib/vtls/schannel.h
+--- curl-7.85.0.old/lib/vtls/schannel.h	2022-09-20 13:50:11.939049000 +0200
++++ curl-7.85.0.new/lib/vtls/schannel.h	2022-09-20 13:50:12.128032700 +0200
+@@ -174,6 +174,10 @@
       can't be decrypted without another Curl_read_plain (that is, status is
       SEC_E_INCOMPLETE_MESSAGE) then set this true. after Curl_read_plain writes
       more bytes into encdata then set this back to false. */

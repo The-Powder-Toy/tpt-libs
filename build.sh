@@ -22,14 +22,15 @@ IFS=$'\n\t'
 tarball_hash() {
 	local tarball_name=$1
 	case $tarball_name in
-	zlib-1.2.11.tar.gz)        sha256sum=c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1;;
-	fftw-3.3.8.tar.gz)         sha256sum=6113262f6e92c5bd474f2875fa1b01054c4ad5040f6b0da7c03c98821d9ae303;;
-	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;;
-	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;;
-	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;;
-	curl-7.68.0.tar.gz)        sha256sum=1dd7604e418b0b9a9077f62f763f6684c1b092a7bc17e3f354b8ad5c964d7358;;
-	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;;
-	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;;
+	zlib-1.2.11.tar.gz)        sha256sum=c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1;; # acquired from https://zlib.net/zlib-1.2.11.tar.gz
+	fftw-3.3.8.tar.gz)         sha256sum=6113262f6e92c5bd474f2875fa1b01054c4ad5040f6b0da7c03c98821d9ae303;; # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
+	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;; # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
+	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
+	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;; # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
+	curl-7.85.0.tar.gz)        sha256sum=78a06f918bd5fde3c4573ef4f9806f56372b32ec1829c9ec474799eeee641c27;; # acquired from https://curl.se/download/curl-7.85.0.tar.gz
+	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;; # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
+	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
+	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
 	*)                                         >&2 echo "no such tarball (update tarball_hash)" && exit 1;;
 	esac
 }
@@ -330,7 +331,7 @@ function windows_msvc_static_mt() {
 }
 
 function compile_zlib() {
-	get_and_cd zlib-1.2.11.tar.gz # acquired from https://zlib.net/zlib-1.2.11.tar.gz
+	get_and_cd zlib-1.2.11.tar.gz
 	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -353,8 +354,32 @@ function compile_zlib() {
 	uncd_and_unget
 }
 
+function compile_mbedtls() {
+	case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
+	x86_64-linux-gnu-static) ;;
+	*) return;;
+	esac
+	get_and_cd mbedtls-3.2.1.tar.gz
+	mkdir build
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
+	cmake_configure+=$'\t'-G$'\t'Ninja
+	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	cmake_configure+=$'\t'-DENABLE_PROGRAMS=OFF
+	cmake_configure+=$'\t'-DMBEDTLS_FATAL_WARNINGS=OFF
+	cmake_configure+=$'\t'-DENABLE_TESTING=OFF
+	add_install_flags cmake_configure
+	cd build
+	VERBOSE=1 $cmake_configure ..
+	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
+	VERBOSE=1 cmake --install . --config $cmake_build_type
+	cd ..
+	echo cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 LICENSE | sha256sum -c
+	cp LICENSE $zip_root_real/licenses/mbedtls.LICENSE
+	uncd_and_unget
+}
+
 function compile_libpng() {
-	get_and_cd libpng-1.6.37.tar.gz # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
+	get_and_cd libpng-1.6.37.tar.gz
 	patch_breakpoint $patches_real/libpng-install-dirs.patch apply
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -405,47 +430,52 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		return
 	fi
-	get_and_cd curl-7.68.0.tar.gz # acquired from https://curl.haxx.se/download/curl-7.68.0.tar.gz
+	get_and_cd curl-7.85.0.tar.gz
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DBUILD_TESTING=OFF
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
 	add_install_flags cmake_configure
-	cmake_configure+=$'\t'-DCMAKE_USE_LIBSSH2=OFF
+	cmake_configure+=$'\t'-DCURL_USE_LIBSSH2=OFF
+	cmake_configure+=$'\t'-DCURL_USE_LIBPSL=OFF
+	cmake_configure+=$'\t'-DUSE_LIBIDN2=OFF
 	cmake_configure+=$'\t'-DBUILD_CURL_EXE=OFF
 	cmake_configure+=$'\t'-DHTTP_ONLY=ON
 	if [[ $BSH_HOST_PLATFORM == windows ]]; then
 		patch_breakpoint $patches_real/libcurl-windows-tls-socket.patch apply
-		cmake_configure+=$'\t'-DCMAKE_USE_WINSSL=ON
+		cmake_configure+=$'\t'-DCURL_USE_SCHANNEL=ON
 		cmake_configure+=$'\t'-DCURL_CA_PATH=none
 	fi
 	if [[ $BSH_HOST_PLATFORM == darwin ]]; then
-		cmake_configure+=$'\t'-DCMAKE_USE_SECTRANSP=ON
+		cmake_configure+=$'\t'-DCURL_USE_SECTRANSP=ON
 		cmake_configure+=$'\t'-DCURL_CA_PATH=none
+	fi
+	if [[ $BSH_HOST_PLATFORM == linux ]]; then
+		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
 	fi
 	cmake_configure+=$'\t'-DCMAKE_PREFIX_PATH=$(export_path $zip_root_real)
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=OFF
 	fi
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		cmake_configure+=$'\t'-DCURL_STATIC_CRT=ON
+	fi
 	cd build
 	VERBOSE=1 $cmake_configure ..
-	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
-		windows_msvc_static_mt
-	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cp **/libcurl*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo db3c4a3b3695a0f317a0c5176acd2f656d18abc45b3ee78e50935a78eb1e132e COPYING | sha256sum -c
+	echo 321b1a09ebc30410f2e837c072e5521cf7095b757193af4a7dae1086e36ed31a COPYING | sha256sum -c
 	cp COPYING $zip_root_real/licenses/libcurl.LICENSE
 	uncd_and_unget
 }
 
 function compile_sdl2() {
-	get_and_cd SDL2-2.0.20.tar.gz # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
+	get_and_cd SDL2-2.0.20.tar.gz
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
 	mkdir build
@@ -559,7 +589,7 @@ function compile_lua5x() {
 }
 
 function compile_lua52() {
-	get_and_cd lua-5.2.4.tar.gz # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
+	get_and_cd lua-5.2.4.tar.gz
 	compile_lua5x lua5.2
 	echo 60302176c6c1f18d2d0aa3dc8f89ba1ed4c83bd24b79cc84542fbaefd04741cf src/lua.h | sha256sum -c
 	sed -n 425,444p src/lua.h > $zip_root_real/licenses/lua5.2.LICENSE
@@ -567,7 +597,7 @@ function compile_lua52() {
 }
 
 function compile_lua51() {
-	get_and_cd lua-5.1.5.tar.gz # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
+	get_and_cd lua-5.1.5.tar.gz
 	compile_lua5x lua5.1
 	echo d293b0c707a42c251a97127a72471c4310f3290517e77717fc1e7365ecf54584 src/lua.h | sha256sum -c
 	sed -n 369,388p src/lua.h > $zip_root_real/licenses/lua5.1.LICENSE
@@ -575,7 +605,7 @@ function compile_lua51() {
 }
 
 function compile_luajit() {
-	get_and_cd LuaJIT-2.1.0-beta3.tar.gz # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
+	get_and_cd LuaJIT-2.1.0-beta3.tar.gz
 	mkdir $zip_root_real/luajit
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -659,7 +689,7 @@ function compile_luajit() {
 }
 
 function compile_fftw() {
-	get_and_cd fftw-3.3.8.tar.gz # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
+	get_and_cd fftw-3.3.8.tar.gz
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -720,9 +750,10 @@ function compile() {
 	status=compiled
 }
 
+compile mbedtls
 compile zlib
+compile curl zlib mbedtls
 compile libpng zlib
-compile curl zlib
 compile sdl2
 compile fftw
 compile lua51
@@ -775,7 +806,7 @@ if [[ $BSH_HOST_PLATFORM == windows ]]; then
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	for junk in lib/libz*dylib*; do rm -r $junk; done
 else
-	for junk in lib/libz*so*; do rm -r $junk; done
+	for junk in lib/libz*so* lib/libpng.a; do rm -r $junk; done
 fi
 
 find . -type d -empty -delete
