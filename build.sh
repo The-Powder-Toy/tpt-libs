@@ -4,9 +4,6 @@ set -euo pipefail
 shopt -s globstar
 IFS=$'\n\t'
 
-# TODO: fix breakage when there are spaces in the path
-# TODO: add openssl
-
 # goals:
 #  - libs have debug info
 #  - release libs are optimized
@@ -581,7 +578,7 @@ function compile_lua5x() {
 		make_configure+=$'\t'-j$NPROC
 		VERBOSE=1 $make_configure
 		mkdir $zip_root_real/$subdir
-		VERBOSE=1 $make INSTALL_TOP=$(export_path $zip_root_real/$subdir) install
+		VERBOSE=1 $make INSTALL_TOP=\'$(export_path $zip_root_real/$subdir)\' install
 		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
 			cp src/*.dll $zip_root_real/$subdir/bin
 		fi
