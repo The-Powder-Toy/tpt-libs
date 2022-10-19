@@ -6,12 +6,16 @@ import sys
 
 ref = os.getenv('GITHUB_REF')
 
+def set_output(key, value):
+	with open(os.getenv('GITHUB_OUTPUT'), 'a') as f:
+		f.write(f"{key}={value}\n")
+
 match = re.match(r'refs/tags/(v[0-9]+)', ref)
 if match:
 	vtag = match.group(1)
 else:
 	vtag = datetime.datetime.now().strftime('v%Y%m%d%H%M%S')
-print('::set-output name=vtag::' + vtag)
+set_output('vtag', vtag)
 
 configurations = []
 for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_build_platform,        runs_on in [
@@ -41,5 +45,5 @@ for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_bui
 			'asset_name': f'tpt-libs-prebuilt-{bsh_host_arch}-{bsh_host_platform}-{bsh_host_libc}-{bsh_static_dynamic}-{debug_release}-{vtag}',
 		})
 
-print('::set-output name=matrix::' + json.dumps({ 'include': configurations }))
-print('::set-output name=do_release::' + (ref.startswith('refs/tags/v') and 'yes' or 'no'))
+set_output('matrix', json.dumps({ 'include': configurations }))
+set_output('do_release', ref.startswith('refs/tags/v') and 'yes' or 'no')
