@@ -1,0 +1,38 @@
+diff -Naur bzip2-1.0.8.old/libbz2.def bzip2-1.0.8.new/libbz2.def
+--- bzip2-1.0.8.old/libbz2.def	2022-10-19 08:26:45.345787900 +0200
++++ bzip2-1.0.8.new/libbz2.def	2022-10-19 08:26:45.392406700 +0200
+@@ -1,5 +1,4 @@
+-LIBRARY			LIBBZ2
+-DESCRIPTION		"libbzip2: library for data compression"
++LIBRARY			BZ2
+ EXPORTS
+ 	BZ2_bzCompressInit
+ 	BZ2_bzCompress
+diff -Naur bzip2-1.0.8.old/meson.build bzip2-1.0.8.new/meson.build
+--- bzip2-1.0.8.old/meson.build	1970-01-01 01:00:00.000000000 +0100
++++ bzip2-1.0.8.new/meson.build	2022-10-19 08:26:45.392406700 +0200
+@@ -0,0 +1,24 @@
++project('bzip2', 'c', default_options: 'c_std=c99')
++
++bz2_args = [ '-D_FILE_OFFSET_BITS=64' ]
++if host_machine.system() == 'windows'
++	bz2_args += [ '-DWIN32' ]
++endif
++bz2_lib = library(
++	'bz2',
++	include_directories: include_directories('.'),
++	sources: [
++		'blocksort.c',
++		'huffman.c',
++		'crctable.c',
++		'randtable.c',
++		'compress.c',
++		'decompress.c',
++		'bzlib.c',
++	],
++	vs_module_defs: 'libbz2.def',
++	install: true,
++	c_args: bz2_args,
++)
++
++install_headers('bzlib.h')

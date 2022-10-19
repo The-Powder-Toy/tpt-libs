@@ -15,6 +15,7 @@ IFS=$'\n\t'
 #  - libcurl uses zlib
 
 . ./common.sh
+repo=$(realpath .)
 
 tarball_hash() {
 	local tarball_name=$1
@@ -28,6 +29,8 @@ tarball_hash() {
 	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;; # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
 	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
 	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
+	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
+	bzip2-1.0.8.tar.gz)        sha256sum=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269;; # acquired from https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
 	*)                                         >&2 echo "no such tarball (update tarball_hash)" && exit 1;;
 	esac
 }
@@ -99,12 +102,19 @@ if [[ $BSH_HOST_PLATFORM == android ]]; then
 	fi
 fi
 
+meson_cross_configure=
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	case $BSH_HOST_ARCH in
 	x86_64) vs_env_arch=x64;;
 	x86)    vs_env_arch=x86;;
 	esac
 	. ./vs-env.sh $vs_env_arch
+elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
+	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
+		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini
+	fi
+	export CC=gcc
+	export CXX=g++
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	# may need export SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)
 	CC=clang
@@ -113,6 +123,7 @@ elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 		export MACOSX_DEPLOYMENT_TARGET=11.0
 		CC+=" -arch arm64"
 		CXX+=" -arch arm64"
+		meson_cross_configure+=$'\t'--cross-file=$repo/.github/macaa64-ghactions.ini
 	else
 		export MACOSX_DEPLOYMENT_TARGET=10.9
 		CC+=" -arch x86_64"
@@ -132,7 +143,6 @@ elif [[ $BSH_HOST_PLATFORM == android ]]; then
 	CXX=$android_toolchain_dir/bin/$android_toolchain_prefix$android_system_version-clang++
 	LD=$android_toolchain_dir/bin/$android_toolchain_prefix-ld
 	AR=$android_toolchain_dir/bin/llvm-ar
-	echo $AR
 	CC+=" -fPIC"
 	CXX+=" -fPIC"
 	LD+=" -fPIC"
@@ -140,6 +150,21 @@ elif [[ $BSH_HOST_PLATFORM == android ]]; then
 	export CXX
 	export LD
 	export AR
+	meson_cross_configure+=$'\t'--cross-file=$repo/.github/android/cross/$BSH_HOST_ARCH.ini
+	cat << ANDROID_INI > .github/android-ghactions.ini
+[constants]
+andriod_ndk_toolchain_bin = '$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin'
+
+[properties]
+# android_ndk_toolchain_prefix comes from the correct cross-file in ./android/cross
+android_ndk_toolchain_prefix = android_ndk_toolchain_prefix
+
+[binaries]
+c = andriod_ndk_toolchain_bin / (android_ndk_toolchain_prefix + 'clang')
+cpp = andriod_ndk_toolchain_bin / (android_ndk_toolchain_prefix + 'clang++')
+strip = andriod_ndk_toolchain_bin / 'llvm-strip'
+ANDROID_INI
+	meson_cross_configure+=$'\t'--cross-file=$repo/.github/android-ghactions.ini
 else
 	export CC=gcc
 	export CXX=g++
@@ -149,6 +174,7 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC != windows-msvc ]]; then
 	CFLAGS+=" -ffunction-sections -fdata-sections"
 fi
 export CFLAGS
+export CXXFLAGS=$CFLAGS
 
 function check_program() {
 	local program_name=$1
@@ -220,7 +246,7 @@ function export_path() {
 	fi
 }
 
-function good_sed() {
+function inplace_sed() {
 	local subst=$1
 	local path=$2
 	if [[ $BSH_BUILD_PLATFORM == darwin ]]; then
@@ -228,6 +254,10 @@ function good_sed() {
 	else
 		sed -i $subst $path
 	fi
+}
+
+function dos2unix() {
+	inplace_sed 's/\r//' $1
 }
 
 function add_install_flags() {
@@ -273,9 +303,7 @@ function patch_breakpoint() {
 	esac
 	if [[ -f $patch_path ]]; then
 		>&2 echo ============== applying patch $patch_path ==============
-		if ! patch -p1 -i $patch_path; then
-			patch --binary -p1 -i $patch_path # windows :D
-		fi
+		patch -p1 -i $patch_path
 	fi
 	case $mode in
 	apply) ;;
@@ -322,9 +350,16 @@ release)
 	cmake_msvc_rt=MultiThreaded
 	;;
 esac
+msvc_rt=
+case $BSH_STATIC_DYNAMIC-$BSH_DEBUG_RELEASE in
+dynamic-debug) msvc_rt=MDd;;
+dynamic-release) msvc_rt=MD;;
+static-debug) msvc_rt=MTd;;
+static-release) msvc_rt=MT;;
+esac
 
 function windows_msvc_static_mt() {
-	good_sed 's|/MD|/MT|g' CMakeCache.txt # static msvcrt
+	inplace_sed 's|/MD|/MT|g' CMakeCache.txt # static msvcrt
 }
 
 function compile_zlib() {
@@ -410,7 +445,7 @@ function compile_libpng() {
 		windows_msvc_static_mt
 	fi
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
-		good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-fno-asynchronous-unwind-tables |g' CMakeCache.txt
+		inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-fno-asynchronous-unwind-tables |g' CMakeCache.txt
 	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
@@ -508,7 +543,6 @@ function compile_sdl2() {
 		cmake_configure+=$'\t'-DSDL_FORCE_STATIC_VCRT=ON
 	fi
 	cd build
-	echo VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
@@ -609,15 +643,18 @@ function compile_luajit() {
 		cd src
 		local msvcbuild_configure=./msvcbuild.bat
 		msvcbuild_configure+=$'\t'debug
-		good_sed 's|/O2|/O2 /MD|g' msvcbuild.bat # make sure we have an /MD to replace; dynamic, release
+		inplace_sed 's|/O2|/O2 /MD|g' msvcbuild.bat # make sure we have an /MD to replace; dynamic, release
 		if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 			msvcbuild_configure+=$'\t'static
-			good_sed 's|/O2 /MD|/O2 /MT|g' msvcbuild.bat # static, release
-			good_sed 's|/Zi|/Z7|g' msvcbuild.bat # include debugging info in the .lib
+			inplace_sed 's|/O2 /MD|/O2 /MT|g' msvcbuild.bat # static, release
+			inplace_sed 's|/Zi|/Z7|g' msvcbuild.bat # include debugging info in the .lib
 		fi
 		if [[ $BSH_DEBUG_RELEASE != release ]]; then
-			good_sed 's|/MT|/MTd|g' msvcbuild.bat # static, debug
-			good_sed 's|/MD|/MDd|g' msvcbuild.bat # dynamic, debug
+			inplace_sed 's|/MT|/MTd|g' msvcbuild.bat # static, debug
+			inplace_sed 's|/MD|/MDd|g' msvcbuild.bat # dynamic, debug
+		fi
+		if [[ $BSH_HOST_ARCH == x86_64 ]]; then
+			msvcbuild_configure+=$'\t'gc64
 		fi
 		$msvcbuild_configure
 		mkdir $zip_root_real/luajit/lib
@@ -658,6 +695,9 @@ function compile_luajit() {
 		make_configure+=$'\t'LUAJIT_A=" liblua.a"
 		if [[ $BSH_DEBUG_RELEASE != release ]]; then
 			make_configure+=$'\t'CCOPT=" -fomit-frame-pointer" # original has -O2
+		fi
+		if [[ $BSH_HOST_ARCH == x86_64 ]]; then
+			make_configure+=$'\t'XCFLAGS=" -DLUAJIT_ENABLE_GC64"
 		fi
 		make_configure+=$'\t'-j$NPROC
 		cd src
@@ -713,8 +753,8 @@ function compile_fftw() {
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		windows_msvc_static_mt
 	fi
-	good_sed 's|HAVE_ALLOCA:INTERNAL=1|HAVE_ALLOCA:INTERNAL=0|g' CMakeCache.txt
-	good_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-DWITH_OUR_MALLOC |g' CMakeCache.txt
+	inplace_sed 's|HAVE_ALLOCA:INTERNAL=1|HAVE_ALLOCA:INTERNAL=0|g' CMakeCache.txt
+	inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-DWITH_OUR_MALLOC |g' CMakeCache.txt
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -723,6 +763,69 @@ function compile_fftw() {
 	cd ..
 	echo 231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c COPYING | sha256sum -c
 	cp COPYING $zip_root_real/licenses/fftw3f.LICENSE
+	uncd_and_unget
+}
+
+function compile_jsoncpp() {
+	get_and_cd jsoncpp-1.9.5.tar.gz
+	mkdir build
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
+	cmake_configure+=$'\t'-G$'\t'Ninja
+	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	cmake_configure+=$'\t'-DJSONCPP_WITH_TESTS=OFF
+	cmake_configure+=$'\t'-DJSONCPP_WITH_POST_BUILD_UNITTEST=OFF
+	cmake_configure+=$'\t'-DJSONCPP_WITH_PKGCONFIG_SUPPORT=OFF
+	cmake_configure+=$'\t'-DJSONCPP_WITH_CMAKE_PACKAGE=OFF
+	add_install_flags cmake_configure
+	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
+		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=OFF
+		cmake_configure+=$'\t'-DBUILD_STATIC_LIBS=ON
+	else
+		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=ON
+		cmake_configure+=$'\t'-DBUILD_STATIC_LIBS=OFF
+	fi
+	cmake_configure+=$'\t'-DBUILD_OBJECT_LIBS=OFF
+	if [[ $BSH_HOST_PLATFORM == android ]]; then
+		add_android_flags cmake_configure
+	fi
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		cmake_configure+=$'\t'-DJSONCPP_STATIC_WINDOWS_RUNTIME=ON
+	fi
+	cd build
+	VERBOSE=1 $cmake_configure ..
+	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
+	VERBOSE=1 cmake --install . --config $cmake_build_type
+	cd ..
+	echo cec0db5f6d7ed6b3a72647bd50aed02e13c3377fd44382b96dc2915534c042ad LICENSE | sha256sum -c
+	cp LICENSE $zip_root_real/licenses/jsoncpp.LICENSE
+	uncd_and_unget
+}
+
+function compile_bzip2() {
+	get_and_cd bzip2-1.0.8.tar.gz
+	dos2unix libbz2.def
+	patch_breakpoint $patches_real/bzip2-meson.patch apply
+	local meson_configure=meson
+	if [[ $BSH_DEBUG_RELEASE == release ]]; then
+		meson_configure+=$'\t'-Dbuildtype=debugoptimized
+	else
+		meson_configure+=$'\t'-Dbuildtype=debug
+	fi
+	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
+		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+			meson_configure+=$'\t'-Db_vscrt=static_from_buildtype
+			meson_configure+=$'\t'-Dc_args="['/Z7']" # include debug info in the .lib
+		fi
+		meson_configure+=$'\t'-Ddefault_library=static
+	fi
+	meson_configure+=$meson_cross_configure
+	meson_configure+=$'\t'--prefix$'\t'$(export_path $zip_root_real)
+	$meson_configure build
+	cd build
+	ninja -v install
+	cd ..
+	echo c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3 LICENSE | sha256sum -c
+	cp LICENSE $zip_root_real/licenses/bzip2.LICENSE
 	uncd_and_unget
 }
 
@@ -747,6 +850,8 @@ function compile() {
 	status=compiled
 }
 
+compile bzip2
+compile jsoncpp
 compile mbedtls
 compile zlib
 compile curl zlib mbedtls

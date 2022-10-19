@@ -182,6 +182,36 @@ meson.override_dependency('libpng16', declare_dependency(
 	],
 ), static: is_static)
 
+if host_platform == 'windows' and host_libc == 'mingw'
+	jsoncpp_name = 'libjsoncpp'
+else
+	jsoncpp_name = 'jsoncpp'
+endif
+config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), jsoncpp_name + '.dll', 'all' ] ]
+meson.override_dependency('jsoncpp', declare_dependency(
+	dependencies: [
+		c_compiler.find_library(jsoncpp_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+	],
+	include_directories: [
+		include_directories('include'),
+	],
+), static: is_static)
+
+if host_platform == 'windows' and host_libc == 'mingw'
+	bzip2_name = 'libbz2'
+else
+	bzip2_name = 'bz2'
+endif
+config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), bzip2_name + '.dll', 'all' ] ]
+meson.override_dependency('bzip2', declare_dependency(
+	dependencies: [
+		c_compiler.find_library(bzip2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+	],
+	include_directories: [
+		include_directories('include'),
+	],
+), static: is_static)
+
 if host_platform == 'android'
 	sdl_jar = files('lib/sdl.jar')
 endif
