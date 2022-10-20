@@ -102,6 +102,20 @@ if [[ $BSH_HOST_PLATFORM == android ]]; then
 	fi
 fi
 
+meson_dirs_configure=
+meson_dirs_configure+=$'\t'-Dbindir=bin
+meson_dirs_configure+=$'\t'-Dlibdir=lib
+meson_dirs_configure+=$'\t'-Dincludedir=include
+meson_dirs_configure+=$'\t'-Ddatadir=junk.datadir
+meson_dirs_configure+=$'\t'-Dinfodir=junk.infodir
+meson_dirs_configure+=$'\t'-Dlocaledir=junk.localedir
+meson_dirs_configure+=$'\t'-Dlibexecdir=junk.libexecdir
+meson_dirs_configure+=$'\t'-Dlocalstatedir=junk.localstatedir
+meson_dirs_configure+=$'\t'-Dmandir=junk.mandir
+meson_dirs_configure+=$'\t'-Dsbindir=junk.sbindir
+meson_dirs_configure+=$'\t'-Dsharedstatedir=junk.sharedstatedir
+meson_dirs_configure+=$'\t'-Dsysconfdir=junk.sysconfdir
+
 meson_cross_configure=
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	case $BSH_HOST_ARCH in
@@ -587,6 +601,7 @@ function compile_lua5x() {
 		else
 			meson_configure+=$'\t'-Dcpp_args="['-DLUA_BUILD_AS_DLL']"
 		fi
+		meson_configure+=$meson_dirs_configure
 		meson_configure+=$'\t'--prefix$'\t'$(export_path $zip_root_real/$subdir)
 		$meson_configure build
 		cd build
@@ -819,6 +834,7 @@ function compile_bzip2() {
 		meson_configure+=$'\t'-Ddefault_library=static
 	fi
 	meson_configure+=$meson_cross_configure
+	meson_configure+=$meson_dirs_configure
 	meson_configure+=$'\t'--prefix$'\t'$(export_path $zip_root_real)
 	$meson_configure build
 	cd build
