@@ -215,7 +215,7 @@ mkdir $temp_dir
 cp -r zip_stub $temp_dir/$zip_root
 mkdir $temp_dir/$zip_root/licenses
 cat - << MESON > $temp_dir/$zip_root/meson.build
-project('tpt-libs-prebuilt', [ 'c' ])
+project('tpt-libs-prebuilt', [ 'c', 'cpp' ])
 
 host_arch = '$BSH_HOST_ARCH'
 host_platform = '$BSH_HOST_PLATFORM'

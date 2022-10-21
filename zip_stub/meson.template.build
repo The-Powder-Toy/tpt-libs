@@ -4,6 +4,7 @@ is_static = static_dynamic == 'static'
 is_debug = debug_release == 'debug'
 
 c_compiler = meson.get_compiler('c')
+cpp_compiler = meson.get_compiler('cpp')
 config_dlls_pre = []
 
 lib_dir = 'lib'
@@ -190,7 +191,7 @@ endif
 config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), jsoncpp_name + '.dll', 'all' ] ]
 meson.override_dependency('jsoncpp', declare_dependency(
 	dependencies: [
-		c_compiler.find_library(jsoncpp_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+		cpp_compiler.find_library(jsoncpp_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 	],
 	include_directories: [
 		include_directories('include'),
