@@ -52,7 +52,7 @@ jobs:
         run: brew install coreutils bash
       - if: matrix.bsh_build_platform == 'linux'
         run: sudo apt update && sudo apt install libc6-dev libc6-dev-i386
-      - run: bash -c './build.sh'
+      - run: bash -c './.github/build.sh'
         env:
           BSH_HOST_ARCH: ${{ matrix.bsh_host_arch }}
           BSH_HOST_PLATFORM: ${{ matrix.bsh_host_platform }}
@@ -72,7 +72,7 @@ jobs:
           asset_name: ${{ matrix.asset_name }}.zip
           asset_content_type: application/zip
       - if: needs.prepare.outputs.do_release == 'yes'
-        run: bash -c './wrapfile.sh'
+        run: bash -c './.github/wrapfile.sh'
         env:
           BSH_HOST_ARCH: ${{ matrix.bsh_host_arch }}
           BSH_HOST_PLATFORM: ${{ matrix.bsh_host_platform }}

@@ -14,7 +14,7 @@ IFS=$'\n\t'
 #  - luas are c++-aware
 #  - libcurl uses zlib
 
-. ./common.sh
+. ./.github/common.sh
 repo=$(realpath .)
 
 tarball_hash() {
@@ -124,7 +124,7 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	esac
 	cmake_vs_toolset=v141
 	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=14.1
-	. ./vs-env.sh
+	. ./.github/vs-env.sh
 elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini

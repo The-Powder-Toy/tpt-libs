@@ -4,7 +4,7 @@ set -euo pipefail
 shopt -s globstar
 IFS=$'\n\t'
 
-. ./common.sh
+. ./.github/common.sh
 
 cd $temp_dir
 
