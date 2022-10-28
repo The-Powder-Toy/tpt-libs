@@ -31,6 +31,7 @@ tarball_hash() {
 	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
 	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
 	bzip2-1.0.8.tar.gz)        sha256sum=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269;; # acquired from https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+	nghttp2-1.50.0.tar.gz)     sha256sum=6de469efc8e9d47059327a6736aebe0a7d73f57e5e37ab4c4f838fb1eebd7889;; # acquired from https://github.com/nghttp2/nghttp2/archive/refs/tags/v1.50.0.tar.gz
 	*)                                         >&2 echo "no such tarball (update tarball_hash)" && exit 1;;
 	esac
 }
@@ -502,6 +503,7 @@ function compile_curl() {
 	cmake_configure+=$'\t'-DUSE_LIBIDN2=OFF
 	cmake_configure+=$'\t'-DBUILD_CURL_EXE=OFF
 	cmake_configure+=$'\t'-DHTTP_ONLY=ON
+	cmake_configure+=$'\t'-DUSE_NGHTTP2=ON
 	if [[ $BSH_HOST_PLATFORM == windows ]]; then
 		patch_breakpoint $patches_real/libcurl-windows-tls-socket.patch apply
 		cmake_configure+=$'\t'-DCURL_USE_SCHANNEL=ON
@@ -521,8 +523,12 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		cmake_configure+=$'\t'-DCURL_STATIC_CRT=ON
 	fi
+	local curl_cflags=$CFLAGS
+	if [[ $BSH_HOST_PLATFORM-$BSH_STATIC_DYNAMIC == windows-static ]]; then
+		curl_cflags+=" -DNGHTTP2_STATICLIB"
+	fi
 	cd build
-	VERBOSE=1 $cmake_configure ..
+	CFLAGS=$curl_cflags VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -842,6 +848,63 @@ function compile_jsoncpp() {
 	uncd_and_unget
 }
 
+function compile_nghttp2() {
+	if [[ $BSH_HOST_PLATFORM == android ]]; then
+		return
+	fi
+	get_and_cd nghttp2-1.50.0.tar.gz
+	mkdir build
+	cmake_configure=cmake # not local because add_*_flags can't deal with that
+	cmake_configure+=$'\t'-G$'\t'Ninja
+	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	cmake_configure+=$'\t'-DENABLE_EXAMPLES=OFF
+	cmake_configure+=$'\t'-DENABLE_FAILMALLOC=OFF
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libev=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libcares=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libngtcp2=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libngtcp2_crypto_openssl=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_PythonInterp=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libnghttp3=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libbpf=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Systemd=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Jansson=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libevent=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Cython=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_PythonLibs=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_LibXml2=ON
+	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Jemalloc=ON
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
+	add_install_flags cmake_configure
+	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
+		cmake_configure+=$'\t'-DENABLE_STATIC_LIB=ON
+		cmake_configure+=$'\t'-DENABLE_SHARED_LIB=OFF
+	else
+		cmake_configure+=$'\t'-DENABLE_STATIC_LIB=OFF
+		cmake_configure+=$'\t'-DENABLE_SHARED_LIB=ON
+	fi
+	if [[ $BSH_HOST_PLATFORM == android ]]; then
+		add_android_flags cmake_configure
+	fi
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		cmake_configure+=$'\t'-DENABLE_STATIC_CRT=ON
+	fi
+	cd build
+	VERBOSE=1 $cmake_configure ..
+	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
+	VERBOSE=1 cmake --install . --config $cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cp **/nghttp2*.pdb $zip_root_real/lib
+	fi
+	cd ..
+	echo 6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a COPYING | sha256sum -c
+	cp COPYING $zip_root_real/licenses/nghttp2.LICENSE
+	uncd_and_unget
+}
+
 function compile_bzip2() {
 	get_and_cd bzip2-1.0.8.tar.gz
 	dos2unix libbz2.def
@@ -892,11 +955,12 @@ function compile() {
 	status=compiled
 }
 
+compile nghttp2
 compile bzip2
 compile jsoncpp
 compile mbedtls
 compile zlib
-compile curl zlib mbedtls
+compile curl zlib mbedtls nghttp2
 compile libpng zlib
 compile sdl2
 compile fftw
@@ -913,6 +977,7 @@ for junk in \
 	junk.* \
 	include/*.{f,f03} \
 	include/libpng16 \
+	include/nghttp2 \
 	lib/{cmake,libpng,pkgconfig} \
 ; do
 	rm -r $junk

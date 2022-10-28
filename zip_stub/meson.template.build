@@ -58,16 +58,23 @@ meson.override_dependency('lua5.2-c++', declare_dependency(
 
 if host_platform != 'android'
 	libcurl_name = 'libcurl'
+	if host_platform == 'windows' and host_libc == 'mingw'
+		nghttp2_name = 'libnghttp2'
+	else
+		nghttp2_name = 'nghttp2'
+	endif
 	if is_debug
 		libcurl_name += '-d'
 	endif
 	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), libcurl_name + '.dll', 'all' ] ]
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), nghttp2_name + '.dll', 'all' ] ]
 	if host_libc == 'msvc' and not is_static
 		libcurl_name += '_imp'
 	endif
 	meson.override_dependency('libcurl', declare_dependency(
 		dependencies: [
 			c_compiler.find_library(libcurl_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+			c_compiler.find_library(nghttp2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 			host_platform == 'windows' ? [
 				c_compiler.find_library('wsock32'),
 				c_compiler.find_library('ws2_32'),
