@@ -122,7 +122,9 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	x86_64) vs_env_arch=x64;;
 	x86)    vs_env_arch=x86;;
 	esac
-	. ./vs-env.sh $vs_env_arch
+	cmake_vs_toolset=v141
+	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=14.1
+	. ./vs-env.sh
 elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini
@@ -383,6 +385,9 @@ function compile_zlib() {
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cd build
 	VERBOSE=1 $cmake_configure ..
@@ -413,6 +418,9 @@ function compile_mbedtls() {
 	cmake_configure+=$'\t'-DENABLE_PROGRAMS=OFF
 	cmake_configure+=$'\t'-DMBEDTLS_FATAL_WARNINGS=OFF
 	cmake_configure+=$'\t'-DENABLE_TESTING=OFF
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cd build
 	VERBOSE=1 $cmake_configure ..
@@ -431,6 +439,9 @@ function compile_libpng() {
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DPNG_BUILD_ZLIB=ON
 	cmake_configure+=$'\t'-DZLIB_INCLUDE_DIR=$(export_path $zip_root_real/include)
@@ -482,6 +493,9 @@ function compile_curl() {
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DBUILD_TESTING=OFF
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DCURL_USE_LIBSSH2=OFF
 	cmake_configure+=$'\t'-DCURL_USE_LIBPSL=OFF
@@ -528,6 +542,9 @@ function compile_sdl2() {
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DSDL_AUDIO=OFF
 	cmake_configure+=$'\t'-DSDL_POWER=OFF
@@ -746,6 +763,9 @@ function compile_fftw() {
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	cmake_configure+=$'\t'-DDISABLE_FORTRAN=ON
 	cmake_configure+=$'\t'-DENABLE_FLOAT=ON
@@ -791,6 +811,9 @@ function compile_jsoncpp() {
 	cmake_configure+=$'\t'-DJSONCPP_WITH_POST_BUILD_UNITTEST=OFF
 	cmake_configure+=$'\t'-DJSONCPP_WITH_PKGCONFIG_SUPPORT=OFF
 	cmake_configure+=$'\t'-DJSONCPP_WITH_CMAKE_PACKAGE=OFF
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
+	fi
 	add_install_flags cmake_configure
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=OFF
@@ -810,6 +833,9 @@ function compile_jsoncpp() {
 	VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cp **/jsoncpp*.pdb $zip_root_real/lib
+	fi
 	cd ..
 	echo cec0db5f6d7ed6b3a72647bd50aed02e13c3377fd44382b96dc2915534c042ad LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/jsoncpp.LICENSE
