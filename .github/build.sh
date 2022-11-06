@@ -38,6 +38,10 @@ tarball_hash() {
 
 get_and_cd() {
 	local tarball_name=$1
+	if ! [[ -z "${2-}" ]]; then
+		declare -n version_ptr=$2
+		version_ptr=$(basename -s .tar.gz $tarball_name | cut -d '-' -f 2-)
+	fi
 	local lib_dir=lib.$tarball_name
 	tarball_hash $tarball_name
 	mkdir $temp_dir/$lib_dir
@@ -217,28 +221,8 @@ fi
 mkdir $temp_dir
 cp -r zip_stub $temp_dir/$zip_root
 mkdir $temp_dir/$zip_root/licenses
-cat - << MESON > $temp_dir/$zip_root/meson.build
-project('tpt-libs-prebuilt', [ 'c', 'cpp' ])
-
-host_arch = '$BSH_HOST_ARCH'
-host_platform = '$BSH_HOST_PLATFORM'
-host_libc = '$BSH_HOST_LIBC'
-static_dynamic = '$BSH_STATIC_DYNAMIC'
-debug_release = '$BSH_DEBUG_RELEASE'
-
-MESON
-if [[ $BSH_HOST_PLATFORM == android ]]; then
-	cat - << MESON >> $temp_dir/$zip_root/meson.build
-android_platform = '$android_platform'
-android_toolchain_prefix = '$android_toolchain_prefix'
-android_system_version = '$android_system_version'
-android_arch_abi = '$android_arch_abi'
-
-MESON
-fi
-cat $temp_dir/$zip_root/meson.template.build >> $temp_dir/$zip_root/meson.build
-rm $temp_dir/$zip_root/meson.template.build
 zip_root_real=$(realpath $temp_dir/$zip_root)
+library_versions=
 
 patches_real=$(realpath patches)
 # use like patch_breakpoint $patches_real/libpng-pkg-config-prefix.patch apply
@@ -380,7 +364,7 @@ function windows_msvc_static_mt() {
 }
 
 function compile_zlib() {
-	get_and_cd zlib-1.2.11.tar.gz
+	get_and_cd zlib-1.2.11.tar.gz zlib_version
 	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -404,6 +388,7 @@ function compile_zlib() {
 	echo 7960b6b1cc63e619abb77acaea5427159605afee8c8b362664f4effc7d7f7d15 README | sha256sum -c
 	sed -n 85,106p README > $zip_root_real/licenses/zlib.LICENSE
 	uncd_and_unget
+	library_versions+="zlib_version = '$zlib_version-tpt-libs'"$'\n'
 }
 
 function compile_mbedtls() {
@@ -411,7 +396,7 @@ function compile_mbedtls() {
 	x86_64-linux-gnu-static) ;;
 	*) return;;
 	esac
-	get_and_cd mbedtls-3.2.1.tar.gz
+	get_and_cd mbedtls-3.2.1.tar.gz mbedtls_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -434,7 +419,8 @@ function compile_mbedtls() {
 }
 
 function compile_libpng() {
-	get_and_cd libpng-1.6.37.tar.gz
+	get_and_cd libpng-1.6.37.tar.gz libpng_version
+	libpng_version+="+zlib-$zlib_version"
 	patch_breakpoint $patches_real/libpng-install-dirs.patch apply
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -482,13 +468,16 @@ function compile_libpng() {
 	echo bf5e22b9dce8464064ae17a48ea1133c3369ac9e1d80ef9e320e5219aa14ea9b LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/libpng.LICENSE
 	uncd_and_unget
+	library_versions+="libpng_version = '$libpng_version-tpt-libs'"$'\n'
 }
 
 function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		return
 	fi
-	get_and_cd curl-7.86.0.tar.gz
+	get_and_cd curl-7.86.0.tar.gz curl_version
+	curl_version+="+nghttp2-$nghttp2_version"
+	curl_version+="+zlib-$zlib_version"
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -515,6 +504,7 @@ function compile_curl() {
 	fi
 	if [[ $BSH_HOST_PLATFORM == linux ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
+		curl_version+="+mbedtls-$mbedtls_version"
 	fi
 	cmake_configure+=$'\t'-DCMAKE_PREFIX_PATH=$(export_path $zip_root_real)
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
@@ -538,10 +528,11 @@ function compile_curl() {
 	echo 321b1a09ebc30410f2e837c072e5521cf7095b757193af4a7dae1086e36ed31a COPYING | sha256sum -c
 	cp COPYING $zip_root_real/licenses/libcurl.LICENSE
 	uncd_and_unget
+	library_versions+="curl_version = '$curl_version-tpt-libs'"$'\n'
 }
 
 function compile_sdl2() {
-	get_and_cd SDL2-2.0.20.tar.gz
+	get_and_cd SDL2-2.0.20.tar.gz sdl2_version
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
 	mkdir build
@@ -603,6 +594,7 @@ function compile_sdl2() {
 	echo fcb07e07ac6bc8b2fcf047b50431ef4ebe5b619d7ca7c82212018309a9067426 LICENSE.txt | sha256sum -c
 	cp LICENSE.txt $zip_root_real/licenses/sdl2.LICENSE
 	uncd_and_unget
+	library_versions+="sdl2_version = '$sdl2_version-tpt-libs'"$'\n'
 }
 
 function compile_lua5x() {
@@ -658,23 +650,25 @@ function compile_lua5x() {
 }
 
 function compile_lua52() {
-	get_and_cd lua-5.2.4.tar.gz
+	get_and_cd lua-5.2.4.tar.gz lua52_version
 	compile_lua5x lua5.2
 	echo 60302176c6c1f18d2d0aa3dc8f89ba1ed4c83bd24b79cc84542fbaefd04741cf src/lua.h | sha256sum -c
 	sed -n 425,444p src/lua.h > $zip_root_real/licenses/lua5.2.LICENSE
 	uncd_and_unget
+	library_versions+="lua52_version = '$lua52_version-tpt-libs'"$'\n'
 }
 
 function compile_lua51() {
-	get_and_cd lua-5.1.5.tar.gz
+	get_and_cd lua-5.1.5.tar.gz lua51_version
 	compile_lua5x lua5.1
 	echo d293b0c707a42c251a97127a72471c4310f3290517e77717fc1e7365ecf54584 src/lua.h | sha256sum -c
 	sed -n 369,388p src/lua.h > $zip_root_real/licenses/lua5.1.LICENSE
 	uncd_and_unget
+	library_versions+="lua51_version = '$lua51_version-tpt-libs'"$'\n'
 }
 
 function compile_luajit() {
-	get_and_cd LuaJIT-2.1.0-beta3.tar.gz
+	get_and_cd LuaJIT-2.1.0-beta3.tar.gz luajit_version
 	mkdir $zip_root_real/luajit
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -761,10 +755,11 @@ function compile_luajit() {
 	echo accb335aa3102f80d31caa2c2508fbcb795314106493519a367f13a87d0e87de COPYRIGHT | sha256sum -c
 	cp COPYRIGHT $zip_root_real/licenses/luajit.LICENSE
 	uncd_and_unget
+	library_versions+="luajit_version = '$luajit_version-tpt-libs'"$'\n'
 }
 
 function compile_fftw() {
-	get_and_cd fftw-3.3.8.tar.gz
+	get_and_cd fftw-3.3.8.tar.gz fftw_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -805,10 +800,11 @@ function compile_fftw() {
 	echo 231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c COPYING | sha256sum -c
 	cp COPYING $zip_root_real/licenses/fftw3f.LICENSE
 	uncd_and_unget
+	library_versions+="fftw_version = '$fftw_version-tpt-libs'"$'\n'
 }
 
 function compile_jsoncpp() {
-	get_and_cd jsoncpp-1.9.5.tar.gz
+	get_and_cd jsoncpp-1.9.5.tar.gz jsoncpp_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -846,13 +842,14 @@ function compile_jsoncpp() {
 	echo cec0db5f6d7ed6b3a72647bd50aed02e13c3377fd44382b96dc2915534c042ad LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/jsoncpp.LICENSE
 	uncd_and_unget
+	library_versions+="jsoncpp_version = '$jsoncpp_version-tpt-libs'"$'\n'
 }
 
 function compile_nghttp2() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		return
 	fi
-	get_and_cd nghttp2-1.50.0.tar.gz
+	get_and_cd nghttp2-1.50.0.tar.gz nghttp2_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -906,7 +903,7 @@ function compile_nghttp2() {
 }
 
 function compile_bzip2() {
-	get_and_cd bzip2-1.0.8.tar.gz
+	get_and_cd bzip2-1.0.8.tar.gz bzip2_version
 	dos2unix libbz2.def
 	patch_breakpoint $patches_real/bzip2-meson.patch apply
 	local meson_configure=meson
@@ -932,6 +929,7 @@ function compile_bzip2() {
 	echo c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3 LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/bzip2.LICENSE
 	uncd_and_unget
+	library_versions+="bzip2_version = '$bzip2_version-tpt-libs'"$'\n'
 }
 
 function compile() {
@@ -967,6 +965,29 @@ compile fftw
 compile lua51
 compile lua52
 compile luajit
+
+cat - << MESON > $temp_dir/$zip_root/meson.build
+project('tpt-libs-prebuilt', [ 'c', 'cpp' ])
+
+host_arch = '$BSH_HOST_ARCH'
+host_platform = '$BSH_HOST_PLATFORM'
+host_libc = '$BSH_HOST_LIBC'
+static_dynamic = '$BSH_STATIC_DYNAMIC'
+debug_release = '$BSH_DEBUG_RELEASE'
+
+$library_versions
+MESON
+if [[ $BSH_HOST_PLATFORM == android ]]; then
+	cat - << MESON >> $temp_dir/$zip_root/meson.build
+android_platform = '$android_platform'
+android_toolchain_prefix = '$android_toolchain_prefix'
+android_system_version = '$android_system_version'
+android_arch_abi = '$android_arch_abi'
+
+MESON
+fi
+cat $temp_dir/$zip_root/meson.template.build >> $temp_dir/$zip_root/meson.build
+rm $temp_dir/$zip_root/meson.template.build
 
 cd $temp_dir/$zip_root
 
