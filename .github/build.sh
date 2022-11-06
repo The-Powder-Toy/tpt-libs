@@ -25,7 +25,7 @@ tarball_hash() {
 	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;; # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;; # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
-	curl-7.85.0.tar.gz)        sha256sum=78a06f918bd5fde3c4573ef4f9806f56372b32ec1829c9ec474799eeee641c27;; # acquired from https://curl.se/download/curl-7.85.0.tar.gz
+	curl-7.86.0.tar.gz)        sha256sum=3dfdd39ba95e18847965cd3051ea6d22586609d9011d91df7bc5521288987a82;; # acquired from https://curl.se/download/curl-7.86.0.tar.gz
 	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;; # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
 	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
 	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
@@ -488,7 +488,7 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		return
 	fi
-	get_and_cd curl-7.85.0.tar.gz
+	get_and_cd curl-7.86.0.tar.gz
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
