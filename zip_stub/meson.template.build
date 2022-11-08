@@ -135,6 +135,9 @@ meson.override_dependency('zlib', declare_dependency(
 
 sdl2_name = 'SDL2'
 sdl2main_name = 'SDL2main'
+if is_static and host_libc == 'msvc'
+	sdl2_name += '-static'
+endif
 if is_debug and host_platform != 'android'
 	sdl2_name += 'd'
 	sdl2main_name += 'd'

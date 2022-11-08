@@ -1,0 +1,17 @@
+diff -Naur SDL2-2.24.2.old/CMakeLists.txt SDL2-2.24.2.new/CMakeLists.txt
+--- SDL2-2.24.2.old/CMakeLists.txt	2022-11-08 10:06:41.130335949 +0100
++++ SDL2-2.24.2.new/CMakeLists.txt	2022-11-08 10:07:14.664584546 +0100
+@@ -1371,13 +1371,6 @@
+     file(GLOB CORE_UNIX_SOURCES ${SDL2_SOURCE_DIR}/src/core/unix/*.c)
+     list(APPEND SOURCE_FILES ${CORE_UNIX_SOURCES})
+ 
+-    check_c_source_compiles("
+-        #include <linux/input.h>
+-        #ifndef EVIOCGNAME
+-        #error EVIOCGNAME() ioctl not available
+-        #endif
+-        int main(int argc, char** argv) { return 0; }" HAVE_INPUT_EVENTS)
+-
+     if(LINUX)
+       check_c_source_compiles("
+           #include <linux/kd.h>

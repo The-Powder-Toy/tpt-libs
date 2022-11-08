@@ -26,7 +26,7 @@ tarball_hash() {
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;; # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
 	curl-7.86.0.tar.gz)        sha256sum=3dfdd39ba95e18847965cd3051ea6d22586609d9011d91df7bc5521288987a82;; # acquired from https://curl.se/download/curl-7.86.0.tar.gz
-	SDL2-2.0.20.tar.gz)        sha256sum=c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06;; # acquired from https://www.libsdl.org/release/SDL2-2.0.20.tar.gz
+	SDL2-2.24.2.tar.gz)        sha256sum=b35ef0a802b09d90ed3add0dcac0e95820804202914f5bb7b0feb710f1a1329f;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.24.2/SDL2-2.24.2.tar.gz
 	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
 	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
 	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
@@ -140,18 +140,26 @@ elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	# may need export SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)
 	CC=clang
 	CXX=clang++
+	OBJC=clang
+	OBJCXX=clang++
 	if [[ $BSH_HOST_ARCH == aarch64 ]]; then
 		export MACOSX_DEPLOYMENT_TARGET=11.0
 		CC+=" -arch arm64"
 		CXX+=" -arch arm64"
+		OBJC+=" -arch arm64"
+		OBJCXX+=" -arch arm64"
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/macaa64-ghactions.ini
 	else
 		export MACOSX_DEPLOYMENT_TARGET=10.9
 		CC+=" -arch x86_64"
 		CXX+=" -arch x86_64"
+		OBJC+=" -arch x86_64"
+		OBJCXX+=" -arch x86_64"
 	fi
 	export CC
 	export CXX
+	export OBJC
+	export OBJCXX
 elif [[ $BSH_HOST_PLATFORM == android ]]; then
 	case $BSH_HOST_ARCH in
 	x86_64)  android_toolchain_prefix=x86_64-linux-android    ; android_system_version=21; android_arch_abi=x86_64     ;;
@@ -532,9 +540,12 @@ function compile_curl() {
 }
 
 function compile_sdl2() {
-	get_and_cd SDL2-2.0.20.tar.gz sdl2_version
+	get_and_cd SDL2-2.24.2.tar.gz sdl2_version
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
+	if [[ $BSH_HOST_PLATFORM == linux ]]; then
+		patch_breakpoint $patches_real/sdl-linux-no-input-events.patch apply_and_edit
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -547,7 +558,6 @@ function compile_sdl2() {
 	cmake_configure+=$'\t'-DSDL_POWER=OFF
 	cmake_configure+=$'\t'-DSDL_LIBC=ON
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
-		patch_breakpoint $patches_real/sdl-android-no-bad-warnings.patch apply
 		cmake_configure+=$'\t'-DSDL_STATIC_PIC=ON
 		add_android_flags cmake_configure
 	fi
@@ -603,7 +613,7 @@ function compile_lua5x() {
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		find . -name "*.c" -exec sh -c 'x="{}"; mv "$x" "${x}pp"' \; # compile as C++ despite .c extension
 		patch_breakpoint $patches_real/$subdir-windows-msvc-meson.patch apply
-		local meson_configure=meson
+		local meson_configure=meson$'\t'setup
 		if [[ $BSH_DEBUG_RELEASE == release ]]; then
 			meson_configure+=$'\t'-Dbuildtype=debugoptimized
 		else
@@ -906,7 +916,7 @@ function compile_bzip2() {
 	get_and_cd bzip2-1.0.8.tar.gz bzip2_version
 	dos2unix libbz2.def
 	patch_breakpoint $patches_real/bzip2-meson.patch apply
-	local meson_configure=meson
+	local meson_configure=meson$'\t'setup
 	if [[ $BSH_DEBUG_RELEASE == release ]]; then
 		meson_configure+=$'\t'-Dbuildtype=debugoptimized
 	else
