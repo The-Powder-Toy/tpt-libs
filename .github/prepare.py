@@ -19,19 +19,19 @@ set_output('vtag', vtag)
 
 configurations = []
 for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_build_platform,        runs_on in [
-	(   'x86_64' ,           'linux',         'gnu',           'static',            'linux', 'ubuntu-18.04' ),
+	(   'x86_64' ,           'linux',         'gnu',           'static',            'linux', 'ubuntu-20.04' ),
 	(   'x86_64' ,         'windows',       'mingw',           'static',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',       'mingw',          'dynamic',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
 	(      'x86' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
 	(      'x86' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
-	(   'x86_64' ,          'darwin',       'macos',           'static',           'darwin',   'macos-11.0' ),
-	(  'aarch64' ,          'darwin',       'macos',           'static',           'darwin',   'macos-11.0' ),
-	(      'x86' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-18.04' ),
-	(   'x86_64' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-18.04' ),
-	(      'arm' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-18.04' ),
-	(  'aarch64' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-18.04' ),
+	(   'x86_64' ,          'darwin',       'macos',           'static',           'darwin',     'macos-11' ),
+	(  'aarch64' ,          'darwin',       'macos',           'static',           'darwin',     'macos-11' ),
+	(      'x86' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-20.04' ),
+	(   'x86_64' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-20.04' ),
+	(      'arm' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-20.04' ),
+	(  'aarch64' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-20.04' ),
 ]:
 	for debug_release in [ 'debug', 'release' ]:
 		configurations.append({
