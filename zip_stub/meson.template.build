@@ -60,17 +60,13 @@ meson.override_dependency('lua5.2-c++', declare_dependency(
 ), static: is_static)
 
 if host_platform != 'android'
-	libcurl_name = 'libcurl'
-	if host_platform == 'windows' and host_libc == 'mingw'
-		nghttp2_name = 'libnghttp2'
-	else
-		nghttp2_name = 'nghttp2'
-	endif
+	libcurl_name = 'curl'
+	nghttp2_name = 'nghttp2'
 	if is_debug
 		libcurl_name += '-d'
 	endif
-	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), libcurl_name + '.dll', 'all' ] ]
-	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), nghttp2_name + '.dll', 'all' ] ]
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), 'lib' + libcurl_name + '.dll', 'all' ] ]
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + nghttp2_name + '.dll', 'all' ] ]
 	if host_libc == 'msvc' and not is_static
 		libcurl_name += '_imp'
 	endif
@@ -180,7 +176,7 @@ meson.override_dependency('sdl2', declare_dependency(
 ), static: is_static)
 
 if host_platform == 'windows'
-	png_name = 'libpng16'
+	png_name = 'png16'
 	if is_static and host_libc == 'msvc'
 		png_name += '_static'
 	endif
@@ -190,7 +186,7 @@ endif
 if is_debug
 	png_name += 'd'
 endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), png_name + '.dll', 'all' ] ]
+config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), 'lib' + png_name + '.dll', 'all' ] ]
 meson.override_dependency('libpng16', declare_dependency(
 	dependencies: [
 		c_compiler.find_library(png_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
@@ -201,12 +197,8 @@ meson.override_dependency('libpng16', declare_dependency(
 	version: libpng_version,
 ), static: is_static)
 
-if host_platform == 'windows' and host_libc == 'mingw'
-	jsoncpp_name = 'libjsoncpp'
-else
-	jsoncpp_name = 'jsoncpp'
-endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), jsoncpp_name + '.dll', 'all' ] ]
+jsoncpp_name = 'jsoncpp'
+config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + jsoncpp_name + '.dll', 'all' ] ]
 meson.override_dependency('jsoncpp', declare_dependency(
 	dependencies: [
 		cpp_compiler.find_library(jsoncpp_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
@@ -217,12 +209,8 @@ meson.override_dependency('jsoncpp', declare_dependency(
 	version: jsoncpp_version,
 ), static: is_static)
 
-if host_platform == 'windows' and host_libc == 'mingw'
-	bzip2_name = 'libbz2'
-else
-	bzip2_name = 'bz2'
-endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), bzip2_name + '.dll', 'all' ] ]
+bzip2_name = 'bz2'
+config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + bzip2_name + '.dll', 'all' ] ]
 meson.override_dependency('bzip2', declare_dependency(
 	dependencies: [
 		c_compiler.find_library(bzip2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
