@@ -150,7 +150,7 @@ elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 		OBJCXX+=" -arch arm64"
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/macaa64-ghactions.ini
 	else
-		export MACOSX_DEPLOYMENT_TARGET=10.9
+		export MACOSX_DEPLOYMENT_TARGET=10.13
 		CC+=" -arch x86_64"
 		CXX+=" -arch x86_64"
 		OBJC+=" -arch x86_64"
