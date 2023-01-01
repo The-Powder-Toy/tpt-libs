@@ -90,6 +90,13 @@ aarch64-android-bionic-static) ;;
 *) >&2 echo "configuration $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC is not supported" && exit 1;;
 esac
 
+case $BSH_BUILD_PLATFORM in
+linux)
+	sudo apt update
+	sudo apt install libc6-dev libc6-dev-i386 fcitx-libs-dev libibus-1.0-dev
+	;;
+esac
+
 android_platform=none
 if [[ $BSH_HOST_PLATFORM == android ]]; then
 	android_platform=android-30
@@ -544,7 +551,7 @@ function compile_sdl2() {
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
 	if [[ $BSH_HOST_PLATFORM == linux ]]; then
-		patch_breakpoint $patches_real/sdl-linux-no-input-events.patch apply_and_edit
+		patch_breakpoint $patches_real/sdl-linux-no-input-events.patch apply
 	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
