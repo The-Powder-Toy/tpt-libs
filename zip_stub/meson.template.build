@@ -14,20 +14,22 @@ if host_platform == 'windows' and host_libc == 'mingw' and not is_static
 	dll_prefix = 'lib'
 endif
 
-luajit_name = 'lua'
-if host_platform == 'windows' and not (host_libc == 'mingw' and is_static)
-	luajit_name += '51'
+if host_platform != 'emscripten'
+	luajit_name = 'lua'
+	if host_platform == 'windows' and not (host_libc == 'mingw' and is_static)
+		luajit_name += '51'
+	endif
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'luajit/bin'), luajit_name + '.dll', 'lua=luajit' ] ]
+	meson.override_dependency('luajit', declare_dependency(
+		dependencies: [
+			c_compiler.find_library(luajit_name, dirs: join_paths(meson.current_source_dir(), 'luajit', lib_dir), static: is_static),
+		],
+		include_directories: [
+			include_directories('luajit/include'),
+		],
+		version: luajit_version,
+	), static: is_static)
 endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'luajit/bin'), luajit_name + '.dll', 'lua=luajit' ] ]
-meson.override_dependency('luajit', declare_dependency(
-	dependencies: [
-		c_compiler.find_library(luajit_name, dirs: join_paths(meson.current_source_dir(), 'luajit', lib_dir), static: is_static),
-	],
-	include_directories: [
-		include_directories('luajit/include'),
-	],
-	version: luajit_version,
-), static: is_static)
 
 lua51_name = 'lua'
 if host_platform == 'windows' and host_libc == 'mingw' and not is_static
@@ -59,7 +61,7 @@ meson.override_dependency('lua5.2-c++', declare_dependency(
 	version: lua52_version,
 ), static: is_static)
 
-if host_platform != 'android'
+if host_platform != 'android' and host_platform != 'emscripten'
 	libcurl_name = 'curl'
 	nghttp2_name = 'nghttp2'
 	if is_debug
@@ -107,95 +109,101 @@ meson.override_dependency('fftw3f', declare_dependency(
 	version: fftw_version,
 ), static: is_static)
 
-if host_platform == 'windows'
-	zlib_name = 'zlib'
-	if is_static
-		zlib_name += 'static'
+if host_platform != 'emscripten'
+	if host_platform == 'windows'
+		zlib_name = 'zlib'
+		if is_static
+			zlib_name += 'static'
+		endif
+		if host_libc == 'msvc' and is_debug
+			zlib_name += 'd'
+		endif
+	else
+		zlib_name = 'z'
 	endif
-	if host_libc == 'msvc' and is_debug
-		zlib_name += 'd'
-	endif
-else
-	zlib_name = 'z'
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + zlib_name + '.dll', 'all' ] ]
+	meson.override_dependency('zlib', declare_dependency(
+		dependencies: [
+			c_compiler.find_library(zlib_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+		],
+		include_directories: [
+			include_directories('include'),
+		],
+		version: zlib_version,
+	), static: is_static)
 endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + zlib_name + '.dll', 'all' ] ]
-meson.override_dependency('zlib', declare_dependency(
-	dependencies: [
-		c_compiler.find_library(zlib_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
-	],
-	include_directories: [
-		include_directories('include'),
-	],
-	version: zlib_version,
-), static: is_static)
 
-sdl2_name = 'SDL2'
-sdl2main_name = 'SDL2main'
-if is_static and host_libc == 'msvc'
-	sdl2_name += '-static'
-endif
-if is_debug and host_platform != 'android'
-	sdl2_name += 'd'
-	sdl2main_name += 'd'
-endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), sdl2_name + '.dll', 'all' ] ]
-meson.override_dependency('sdl2', declare_dependency(
-	dependencies: [
-		c_compiler.find_library(sdl2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
-		c_compiler.find_library(sdl2main_name, dirs: join_paths(meson.current_source_dir(), 'lib')),
-		host_platform == 'windows' ? [
-			c_compiler.find_library('version'),
-			c_compiler.find_library('imm32'),
-			c_compiler.find_library('winmm'),
-		] : [],
-		host_platform == 'linux' ? [
-			c_compiler.find_library('dl'),
-		] : [],
-		host_platform == 'android' ? [
-			c_compiler.find_library('dl'),
-			c_compiler.find_library('android'),
-			c_compiler.find_library('log'),
-			c_compiler.find_library('GLESv2'),
-			c_compiler.find_library('GLESv1_CM'),
-		] : [],
-		host_platform == 'darwin' ? dependency('AppleFrameworks', modules: [
-			'Cocoa',
-			'Metal',
-			'IOKit',
-			'CoreVideo',
-			'Carbon',
-		]) : [],
-		'@0@-@1@'.format(host_platform, host_libc) == 'windows-mingw' ? [
-			c_compiler.find_library('mingw32'),
-		] : [],
-	],
-	include_directories: [
-		include_directories('include/SDL2'),
-	],
-	version: sdl2_version,
-), static: is_static)
-
-if host_platform == 'windows'
-	png_name = 'png16'
+if host_platform != 'emscripten'
+	sdl2_name = 'SDL2'
+	sdl2main_name = 'SDL2main'
 	if is_static and host_libc == 'msvc'
-		png_name += '_static'
+		sdl2_name += '-static'
 	endif
-else
-	png_name = 'png16'
+	if is_debug and host_platform != 'android'
+		sdl2_name += 'd'
+		sdl2main_name += 'd'
+	endif
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), sdl2_name + '.dll', 'all' ] ]
+	meson.override_dependency('sdl2', declare_dependency(
+		dependencies: [
+			c_compiler.find_library(sdl2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+			c_compiler.find_library(sdl2main_name, dirs: join_paths(meson.current_source_dir(), 'lib')),
+			host_platform == 'windows' ? [
+				c_compiler.find_library('version'),
+				c_compiler.find_library('imm32'),
+				c_compiler.find_library('winmm'),
+			] : [],
+			host_platform == 'linux' ? [
+				c_compiler.find_library('dl'),
+			] : [],
+			host_platform == 'android' ? [
+				c_compiler.find_library('dl'),
+				c_compiler.find_library('android'),
+				c_compiler.find_library('log'),
+				c_compiler.find_library('GLESv2'),
+				c_compiler.find_library('GLESv1_CM'),
+			] : [],
+			host_platform == 'darwin' ? dependency('AppleFrameworks', modules: [
+				'Cocoa',
+				'Metal',
+				'IOKit',
+				'CoreVideo',
+				'Carbon',
+			]) : [],
+			'@0@-@1@'.format(host_platform, host_libc) == 'windows-mingw' ? [
+				c_compiler.find_library('mingw32'),
+			] : [],
+		],
+		include_directories: [
+			include_directories('include/SDL2'),
+		],
+		version: sdl2_version,
+	), static: is_static)
 endif
-if is_debug
-	png_name += 'd'
+
+if host_platform != 'emscripten'
+	if host_platform == 'windows'
+		png_name = 'png16'
+		if is_static and host_libc == 'msvc'
+			png_name += '_static'
+		endif
+	else
+		png_name = 'png16'
+	endif
+	if is_debug
+		png_name += 'd'
+	endif
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), 'lib' + png_name + '.dll', 'all' ] ]
+	meson.override_dependency('libpng16', declare_dependency(
+		dependencies: [
+			c_compiler.find_library(png_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+		],
+		include_directories: [
+			include_directories('include'),
+		],
+		version: libpng_version,
+	), static: is_static)
 endif
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), 'lib' + png_name + '.dll', 'all' ] ]
-meson.override_dependency('libpng16', declare_dependency(
-	dependencies: [
-		c_compiler.find_library(png_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
-	],
-	include_directories: [
-		include_directories('include'),
-	],
-	version: libpng_version,
-), static: is_static)
 
 jsoncpp_name = 'jsoncpp'
 config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + jsoncpp_name + '.dll', 'all' ] ]
@@ -209,17 +217,19 @@ meson.override_dependency('jsoncpp', declare_dependency(
 	version: jsoncpp_version,
 ), static: is_static)
 
-bzip2_name = 'bz2'
-config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + bzip2_name + '.dll', 'all' ] ]
-meson.override_dependency('bzip2', declare_dependency(
-	dependencies: [
-		c_compiler.find_library(bzip2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
-	],
-	include_directories: [
-		include_directories('include'),
-	],
-	version: bzip2_version,
-), static: is_static)
+if host_platform != 'emscripten'
+	bzip2_name = 'bz2'
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + bzip2_name + '.dll', 'all' ] ]
+	meson.override_dependency('bzip2', declare_dependency(
+		dependencies: [
+			c_compiler.find_library(bzip2_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+		],
+		include_directories: [
+			include_directories('include'),
+		],
+		version: bzip2_version,
+	), static: is_static)
+endif
 
 if host_platform == 'android'
 	sdl_jar = files('lib/sdl.jar')

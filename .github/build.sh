@@ -87,15 +87,36 @@ x86-android-bionic-static) ;;
 x86_64-android-bionic-static) ;;
 arm-android-bionic-static) ;;
 aarch64-android-bionic-static) ;;
+wasm32-emscripten-emscripten-static) ;;
 *) >&2 echo "configuration $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC is not supported" && exit 1;;
 esac
 
-case $BSH_BUILD_PLATFORM in
-linux)
-	sudo apt update
-	sudo apt install libc6-dev libc6-dev-i386 fcitx-libs-dev libibus-1.0-dev
-	;;
-esac
+if [[ -z ${BSH_NO_PACKAGES-} ]]; then
+	case $BSH_HOST_PLATFORM in
+	linux)
+		sudo apt update
+		sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
+		;;
+	android)
+		sudo apt update
+		case $BSH_HOST_ARCH in
+		x86_64)  ;&
+		aarch64) sudo apt install libc6-dev;;
+		x86)     ;&
+		arm)     sudo apt install libc6-dev-i386;;
+		esac
+		;;
+	emscripten)
+		git clone https://github.com/emscripten-core/emsdk.git --branch 3.1.30
+		cd emsdk
+		./emsdk install latest
+		./emsdk activate latest
+		. ./emsdk_env.sh
+		export EMROOT=$EMSDK/upstream/emscripten
+		cd ..
+		;;
+	esac
+fi
 
 android_platform=none
 if [[ $BSH_HOST_PLATFORM == android ]]; then
@@ -110,6 +131,13 @@ if [[ $BSH_HOST_PLATFORM == android ]]; then
 	fi
 	if [[ -z "${ANDROID_NDK_LATEST_HOME-}" ]]; then
 		>&2 echo "ANDROID_NDK_LATEST_HOME not set"
+		exit 1
+	fi
+fi
+
+if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+	if [[ -z "${EMROOT-}" ]]; then
+		>&2 echo "EMROOT not set"
 		exit 1
 	fi
 fi
@@ -167,6 +195,15 @@ elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	export CXX
 	export OBJC
 	export OBJCXX
+elif [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+	EMCC_CFLAGS="-s USE_PTHREADS=1" # for cmake
+	CC="emcc $EMCC_CFLAGS" # for everything else
+	EMCC_CXXFLAGS="-s DISABLE_EXCEPTION_CATCHING=0 -s USE_PTHREADS=1" # for cmake
+	CXX="em++ $EMCC_CXXFLAGS" # for everything else
+	AR=emar
+	export CC
+	export CXX
+	export AR
 elif [[ $BSH_HOST_PLATFORM == android ]]; then
 	case $BSH_HOST_ARCH in
 	x86_64)  android_toolchain_prefix=x86_64-linux-android    ; android_system_version=21; android_arch_abi=x86_64     ;;
@@ -304,6 +341,11 @@ function add_android_flags() {
 	cmake_configure_ptr+=$'\t'-DCMAKE_TOOLCHAIN_FILE=$(export_path $ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake)
 }
 
+function add_emscripten_flags() {
+	declare -n cmake_configure_ptr=$1
+	cmake_configure_ptr+=$'\t'-DCMAKE_TOOLCHAIN_FILE=$EMROOT/cmake/Modules/Platform/Emscripten.cmake
+}
+
 function patch_breakpoint() {
 	local patch_path=$1
 	local mode=$2
@@ -379,6 +421,9 @@ function windows_msvc_static_mt() {
 }
 
 function compile_zlib() {
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd zlib-1.2.11.tar.gz zlib_version
 	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
 	mkdir build
@@ -434,6 +479,9 @@ function compile_mbedtls() {
 }
 
 function compile_libpng() {
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd libpng-1.6.37.tar.gz libpng_version
 	libpng_version+="+zlib-$zlib_version"
 	patch_breakpoint $patches_real/libpng-install-dirs.patch apply
@@ -487,7 +535,7 @@ function compile_libpng() {
 }
 
 function compile_curl() {
-	if [[ $BSH_HOST_PLATFORM == android ]]; then
+	if [[ $BSH_HOST_PLATFORM == android ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
 	get_and_cd curl-7.86.0.tar.gz curl_version
@@ -547,6 +595,9 @@ function compile_curl() {
 }
 
 function compile_sdl2() {
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd SDL2-2.24.2.tar.gz sdl2_version
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
@@ -685,6 +736,9 @@ function compile_lua51() {
 }
 
 function compile_luajit() {
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd LuaJIT-2.1.0-beta3.tar.gz luajit_version
 	mkdir $zip_root_real/luajit
 	mkdir $zip_root_real/luajit/include
@@ -801,10 +855,16 @@ function compile_fftw() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		add_android_flags cmake_configure
 	fi
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		add_emscripten_flags cmake_configure
+	fi
 	cd build
 	VERBOSE=1 $cmake_configure ..
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		windows_msvc_static_mt
+	fi
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING='$EMCC_CFLAGS' |g' CMakeCache.txt
 	fi
 	inplace_sed 's|HAVE_ALLOCA:INTERNAL=1|HAVE_ALLOCA:INTERNAL=0|g' CMakeCache.txt
 	inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-DWITH_OUR_MALLOC |g' CMakeCache.txt
@@ -845,11 +905,18 @@ function compile_jsoncpp() {
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		add_android_flags cmake_configure
 	fi
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		add_emscripten_flags cmake_configure
+	fi
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		cmake_configure+=$'\t'-DJSONCPP_STATIC_WINDOWS_RUNTIME=ON
 	fi
 	cd build
 	VERBOSE=1 $cmake_configure ..
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING='$EMCC_CFLAGS' |g' CMakeCache.txt
+		inplace_sed 's|CMAKE_CXX_FLAGS:STRING=|CMAKE_CXX_FLAGS:STRING='$EMCC_CXXFLAGS' |g' CMakeCache.txt
+	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -863,7 +930,7 @@ function compile_jsoncpp() {
 }
 
 function compile_nghttp2() {
-	if [[ $BSH_HOST_PLATFORM == android ]]; then
+	if [[ $BSH_HOST_PLATFORM == android ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
 	get_and_cd nghttp2-1.50.0.tar.gz nghttp2_version
@@ -920,6 +987,9 @@ function compile_nghttp2() {
 }
 
 function compile_bzip2() {
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd bzip2-1.0.8.tar.gz bzip2_version
 	dos2unix libbz2.def
 	patch_breakpoint $patches_real/bzip2-meson.patch apply
