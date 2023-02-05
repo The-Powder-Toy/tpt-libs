@@ -923,6 +923,9 @@ function compile_bzip2() {
 	get_and_cd bzip2-1.0.8.tar.gz bzip2_version
 	dos2unix libbz2.def
 	patch_breakpoint $patches_real/bzip2-meson.patch apply
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		patch_breakpoint $patches_real/bzip2-msvc-libname.patch apply
+	fi
 	local meson_configure=meson$'\t'setup
 	if [[ $BSH_DEBUG_RELEASE == release ]]; then
 		meson_configure+=$'\t'-Dbuildtype=debugoptimized

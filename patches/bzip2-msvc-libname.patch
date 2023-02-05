@@ -1,0 +1,10 @@
+diff -Naur bzip2-1.0.8.old/libbz2.def bzip2-1.0.8.new/libbz2.def
+--- bzip2-1.0.8.old/libbz2.def	2022-10-19 08:26:45.345787900 +0200
++++ bzip2-1.0.8.new/libbz2.def	2022-10-19 08:26:45.392406700 +0200
+@@ -1,5 +1,4 @@
+-LIBRARY			LIBBZ2
+-DESCRIPTION		"libbzip2: library for data compression"
++LIBRARY			BZ2
+ EXPORTS
+ 	BZ2_bzCompressInit
+ 	BZ2_bzCompress
