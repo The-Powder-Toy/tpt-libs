@@ -1,0 +1,11 @@
+diff -Naur zlib-1.2.11.old/zlib.map zlib-1.2.11.new/zlib.map
+--- zlib-1.2.11.old/zlib.map	2023-10-01 11:24:02.064751999 +0200
++++ zlib-1.2.11.new/zlib.map	2023-10-01 11:24:12.968353760 +0200
+@@ -15,7 +15,6 @@
+     zcfree;
+     z_errmsg;
+     gz_error;
+-    gz_intmax;
+     _*;
+ };
+ 

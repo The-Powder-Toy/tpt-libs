@@ -1,0 +1,30 @@
+diff -Naur LuaJIT-2.1.0-beta3.old/src/lib_io.c LuaJIT-2.1.0-beta3.new/src/lib_io.c
+--- LuaJIT-2.1.0-beta3.old/src/lib_io.c	2023-10-03 07:29:51.945102197 +0200
++++ LuaJIT-2.1.0-beta3.new/src/lib_io.c	2023-10-03 07:29:51.985102464 +0200
+@@ -325,26 +325,10 @@
+     else if (!tvisnil(o))
+       lj_err_argt(L, 3, LUA_TNUMBER);
+   }
+-#if LJ_TARGET_POSIX
+-  res = fseeko(fp, ofs, opt);
+-#elif _MSC_VER >= 1400
+-  res = _fseeki64(fp, ofs, opt);
+-#elif defined(__MINGW32__)
+-  res = fseeko64(fp, ofs, opt);
+-#else
+   res = fseek(fp, (long)ofs, opt);
+-#endif
+   if (res)
+     return luaL_fileresult(L, 0, NULL);
+-#if LJ_TARGET_POSIX
+-  ofs = ftello(fp);
+-#elif _MSC_VER >= 1400
+-  ofs = _ftelli64(fp);
+-#elif defined(__MINGW32__)
+-  ofs = ftello64(fp);
+-#else
+   ofs = (int64_t)ftell(fp);
+-#endif
+   setint64V(L->top-1, ofs);
+   return 1;
+ }

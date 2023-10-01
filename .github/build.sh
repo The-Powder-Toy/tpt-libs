@@ -207,9 +207,9 @@ elif [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 elif [[ $BSH_HOST_PLATFORM == android ]]; then
 	case $BSH_HOST_ARCH in
 	x86_64)  android_toolchain_prefix=x86_64-linux-android    ; android_system_version=21; android_arch_abi=x86_64     ;;
-	x86)     android_toolchain_prefix=i686-linux-android      ; android_system_version=19; android_arch_abi=x86        ;;
+	x86)     android_toolchain_prefix=i686-linux-android      ; android_system_version=21; android_arch_abi=x86        ;;
 	aarch64) android_toolchain_prefix=aarch64-linux-android   ; android_system_version=21; android_arch_abi=arm64-v8a  ;;
-	arm)     android_toolchain_prefix=armv7a-linux-androideabi; android_system_version=19; android_arch_abi=armeabi-v7a;;
+	arm)     android_toolchain_prefix=armv7a-linux-androideabi; android_system_version=21; android_arch_abi=armeabi-v7a;;
 	esac
 	android_toolchain_dir=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64
 	CC=$android_toolchain_dir/bin/$android_toolchain_prefix$android_system_version-clang
@@ -426,6 +426,9 @@ function compile_zlib() {
 	fi
 	get_and_cd zlib-1.2.11.tar.gz zlib_version
 	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
+	if [[ $BSH_HOST_PLATFORM != windows ]]; then
+		patch_breakpoint $patches_real/zlib-gz-intmax-visibility.patch apply
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -794,6 +797,9 @@ function compile_luajit() {
 		fi
 		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-static ]]; then
 			patch_breakpoint $patches_real/luajit-mingw-force-static.patch apply
+		fi
+		if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM == x86-android ]] || [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM == arm-android ]]; then
+			patch_breakpoint $patches_real/luajit-android-32b-ftell.patch apply
 		fi
 		make_configure+=$'\t'CCDEBUG=" -g"
 		make_configure+=$'\t'LUAJIT_A=" liblua.a"
