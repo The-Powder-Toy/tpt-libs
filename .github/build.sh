@@ -746,6 +746,7 @@ function compile_luajit() {
 		cd src
 		local msvcbuild_configure=./msvcbuild.bat
 		msvcbuild_configure+=$'\t'debug
+		inplace_sed 's|/DLUAJIT_ENABLE_GC64|/DLUAJIT_ENABLE_GC64 /DLUAJIT_ENABLE_LUA52COMPAT|g' msvcbuild.bat
 		inplace_sed 's|/O2|/O2 /MD|g' msvcbuild.bat # make sure we have an /MD to replace; dynamic, release
 		if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 			msvcbuild_configure+=$'\t'static
@@ -799,9 +800,11 @@ function compile_luajit() {
 		if [[ $BSH_DEBUG_RELEASE != release ]]; then
 			make_configure+=$'\t'CCOPT=" -fomit-frame-pointer" # original has -O2
 		fi
+		local XCFLAGS=" -DLUAJIT_ENABLE_LUA52COMPAT"
 		if [[ $BSH_HOST_ARCH == x86_64 ]]; then
-			make_configure+=$'\t'XCFLAGS=" -DLUAJIT_ENABLE_GC64"
+			XCFLAGS+=" -DLUAJIT_ENABLE_GC64"
 		fi
+		make_configure+=$'\t'XCFLAGS=$XCFLAGS
 		make_configure+=$'\t'-j$NPROC
 		cd src
 		VERBOSE=1 $make_configure
