@@ -457,6 +457,12 @@ function compile_zlib() {
 function compile_mbedtls() {
 	case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
 	x86_64-linux-gnu-static) ;;
+	x86_64-windows-mingw-static) ;;
+	x86_64-windows-mingw-dynamic) ;;
+	x86_64-windows-msvc-static) ;;
+	x86_64-windows-msvc-dynamic) ;;
+	x86-windows-msvc-static) ;;
+	x86-windows-msvc-dynamic) ;;
 	*) return;;
 	esac
 	get_and_cd mbedtls-3.2.1.tar.gz mbedtls_version
@@ -467,6 +473,13 @@ function compile_mbedtls() {
 	cmake_configure+=$'\t'-DENABLE_PROGRAMS=OFF
 	cmake_configure+=$'\t'-DMBEDTLS_FATAL_WARNINGS=OFF
 	cmake_configure+=$'\t'-DENABLE_TESTING=OFF
+	# if [[ $BSH_STATIC_DYNAMIC == dynamic ]]; then
+	# 	# nothing; mbedtls is always static
+	#	# I couldn't get dynamic to work on windows, the dll exports nothing...
+	# fi
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		cmake_configure+=$'\t'-DMSVC_STATIC_RUNTIME=ON
+	fi
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
 	fi
@@ -475,6 +488,9 @@ function compile_mbedtls() {
 	VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
+		cp **/mbed*.pdb $zip_root_real/lib
+	fi
 	cd ..
 	echo cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/mbedtls.LICENSE
@@ -560,9 +576,17 @@ function compile_curl() {
 	cmake_configure+=$'\t'-DHTTP_ONLY=ON
 	cmake_configure+=$'\t'-DUSE_NGHTTP2=ON
 	if [[ $BSH_HOST_PLATFORM == windows ]]; then
-		patch_breakpoint $patches_real/libcurl-windows-tls-socket.patch apply
-		cmake_configure+=$'\t'-DCURL_USE_SCHANNEL=ON
-		cmake_configure+=$'\t'-DCURL_CA_PATH=none
+		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
+		curl_version+="+mbedtls-$mbedtls_version"
+		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
+			# since mbedtls is always linked against statically, dynamic libcurl is responsible
+			# for pulling in all the symbols. this is not idea, but I couldn't get mbedtls to build
+			# dynamically; I don't think that's well-tested. so libcurl pulls in ws2_32, but it does
+			# this before pulling in mbedtls on the mingw gcc command line so of course mbedtls doesn't
+			# get all the ws2_32 symbols and fails to link >_> so we add another ws2_32 at the end for
+			# good measure.
+			patch_breakpoint $patches_real/libcurl-mbedtls-ws2_32.patch apply
+		fi
 	fi
 	if [[ $BSH_HOST_PLATFORM == darwin ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_SECTRANSP=ON

@@ -85,7 +85,7 @@ if host_platform != 'android' and host_platform != 'emscripten'
 				'Security',
 				'SystemConfiguration',
 			]) : [],
-			host_platform == 'linux' ? [
+			(is_static and (host_platform == 'linux' or host_platform == 'windows')) ? [
 				c_compiler.find_library('mbedcrypto', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 				c_compiler.find_library('mbedtls', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 				c_compiler.find_library('mbedx509', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
