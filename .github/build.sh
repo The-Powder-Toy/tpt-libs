@@ -455,16 +455,9 @@ function compile_zlib() {
 }
 
 function compile_mbedtls() {
-	case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
-	x86_64-linux-gnu-static) ;;
-	x86_64-windows-mingw-static) ;;
-	x86_64-windows-mingw-dynamic) ;;
-	x86_64-windows-msvc-static) ;;
-	x86_64-windows-msvc-dynamic) ;;
-	x86-windows-msvc-static) ;;
-	x86-windows-msvc-dynamic) ;;
-	*) return;;
-	esac
+	if [[ $BSH_HOST_PLATFORM == darwin ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+		return
+	fi
 	get_and_cd mbedtls-3.2.1.tar.gz mbedtls_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -554,7 +547,7 @@ function compile_libpng() {
 }
 
 function compile_curl() {
-	if [[ $BSH_HOST_PLATFORM == android ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
 	get_and_cd curl-7.86.0.tar.gz curl_version
@@ -577,6 +570,7 @@ function compile_curl() {
 	cmake_configure+=$'\t'-DUSE_NGHTTP2=ON
 	if [[ $BSH_HOST_PLATFORM == windows ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
+		cmake_configure+=$'\t'-DCURL_CA_PATH=none
 		curl_version+="+mbedtls-$mbedtls_version"
 		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
 			# since mbedtls is always linked against statically, dynamic libcurl is responsible
@@ -592,8 +586,9 @@ function compile_curl() {
 		cmake_configure+=$'\t'-DCURL_USE_SECTRANSP=ON
 		cmake_configure+=$'\t'-DCURL_CA_PATH=none
 	fi
-	if [[ $BSH_HOST_PLATFORM == linux ]]; then
+	if [[ $BSH_HOST_PLATFORM == linux ]] || [[ $BSH_HOST_PLATFORM == android ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
+		cmake_configure+=$'\t'-DCURL_CA_PATH=none
 		curl_version+="+mbedtls-$mbedtls_version"
 	fi
 	cmake_configure+=$'\t'-DCMAKE_PREFIX_PATH=$(export_path $zip_root_real)
@@ -963,7 +958,7 @@ function compile_jsoncpp() {
 }
 
 function compile_nghttp2() {
-	if [[ $BSH_HOST_PLATFORM == android ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
+	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
 	get_and_cd nghttp2-1.50.0.tar.gz nghttp2_version

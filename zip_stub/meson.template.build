@@ -61,7 +61,7 @@ meson.override_dependency('lua5.2-c++', declare_dependency(
 	version: lua52_version,
 ), static: is_static)
 
-if host_platform != 'android' and host_platform != 'emscripten'
+if host_platform != 'emscripten'
 	libcurl_name = 'curl'
 	nghttp2_name = 'nghttp2'
 	if is_debug
@@ -85,7 +85,7 @@ if host_platform != 'android' and host_platform != 'emscripten'
 				'Security',
 				'SystemConfiguration',
 			]) : [],
-			(is_static and (host_platform == 'linux' or host_platform == 'windows')) ? [
+			(is_static and (host_platform == 'linux' or host_platform == 'windows' or host_platform == 'android')) ? [
 				c_compiler.find_library('mbedcrypto', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 				c_compiler.find_library('mbedtls', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 				c_compiler.find_library('mbedx509', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
