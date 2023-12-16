@@ -15,6 +15,12 @@ IFS=$'\n\t'
 #  - libcurl uses zlib
 
 . ./.github/common.sh
+
+if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]] && [[ -z $MSYSTEM ]]; then
+	exec 'C:\msys64\ucrt64.exe' '-c' $0
+	exit 1
+fi
+
 repo=$(realpath .)
 
 tarball_hash() {
@@ -76,7 +82,6 @@ fi
 case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
 x86_64-linux-gnu-static) ;;
 x86_64-windows-mingw-static) ;;
-x86_64-windows-mingw-dynamic) ;;
 x86_64-windows-msvc-static) ;;
 x86_64-windows-msvc-dynamic) ;;
 x86-windows-msvc-static) ;;
@@ -94,8 +99,17 @@ esac
 if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 	case $BSH_HOST_PLATFORM in
 	linux)
-		sudo apt update
-		sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
+		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
+			pacman -Syu --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
+		else
+			sudo apt update
+			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
+		fi
+		;;
+	windows)
+		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
+			pacman -Syu --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,7zip} patch
+		fi
 		;;
 	android)
 		sudo apt update
@@ -169,8 +183,8 @@ elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini
 	fi
-	export CC=gcc
-	export CXX=g++
+	export CC=x86_64-w64-mingw32-gcc
+	export CXX=x86_64-w64-mingw32-g++
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	# may need export SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)
 	CC=clang
@@ -255,9 +269,6 @@ function check_program() {
 }
 
 make=make
-if [[ $BSH_BUILD_PLATFORM == windows ]]; then
-	make=mingw32-make
-fi
 check_program cmake
 check_program 7z
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -519,7 +530,6 @@ function compile_libpng() {
 		msvc-static) zlib_path=$zip_root_real/lib/zlibstatic.lib;;
 		msvc-dynamic) zlib_path=$zip_root_real/lib/zlib$debug_d.lib;;
 		mingw-static) zlib_path=$zip_root_real/lib/libzlibstatic.a;;
-		mingw-dynamic) zlib_path=$zip_root_real/lib/libzlib.dll.a;;
 		esac
 		cmake_configure+=$'\t'-DZLIB_LIBRARY=$(export_path $zlib_path)
 	fi
@@ -530,9 +540,6 @@ function compile_libpng() {
 	VERBOSE=1 $cmake_configure ..
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		windows_msvc_static_mt
-	fi
-	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
-		inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING=-fno-asynchronous-unwind-tables |g' CMakeCache.txt
 	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
@@ -572,15 +579,6 @@ function compile_curl() {
 		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
 		cmake_configure+=$'\t'-DCURL_CA_PATH=none
 		curl_version+="+mbedtls-$mbedtls_version"
-		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
-			# since mbedtls is always linked against statically, dynamic libcurl is responsible
-			# for pulling in all the symbols. this is not idea, but I couldn't get mbedtls to build
-			# dynamically; I don't think that's well-tested. so libcurl pulls in ws2_32, but it does
-			# this before pulling in mbedtls on the mingw gcc command line so of course mbedtls doesn't
-			# get all the ws2_32 symbols and fails to link >_> so we add another ws2_32 at the end for
-			# good measure.
-			patch_breakpoint $patches_real/libcurl-mbedtls-ws2_32.patch apply
-		fi
 	fi
 	if [[ $BSH_HOST_PLATFORM == darwin ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_SECTRANSP=ON
@@ -733,9 +731,6 @@ function compile_lua5x() {
 		VERBOSE=1 $make_configure
 		mkdir $zip_root_real/$subdir
 		VERBOSE=1 $make INSTALL_TOP=\'$(export_path $zip_root_real/$subdir)\' install
-		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-mingw-dynamic ]]; then
-			cp src/*.dll $zip_root_real/$subdir/bin
-		fi
 	fi
 }
 
@@ -796,6 +791,9 @@ function compile_luajit() {
 		make_configure+=$'\t'Q=
 		if [[ $BSH_HOST_PLATFORM == windows ]]; then
 			make_configure+=$'\t'TARGET_SYS=Windows
+			if [[ $BSH_HOST_LIBC == mingw ]]; then
+				make_configure+=$'\t'CC=$CC
+			fi
 		fi
 		if [[ $BSH_HOST_PLATFORM == darwin ]]; then
 			make_configure+=$'\t'TARGET_SYS=Darwin
@@ -833,18 +831,8 @@ function compile_luajit() {
 		make_configure+=$'\t'-j$NPROC
 		cd src
 		VERBOSE=1 $make_configure
-		if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
-			if [[ $BSH_STATIC_DYNAMIC == static ]]; then
-				mkdir $zip_root_real/luajit/lib
-				cp liblua.a $zip_root_real/luajit/lib
-			else
-				mkdir $zip_root_real/luajit/bin
-				cp lua51.dll $zip_root_real/luajit/bin
-			fi
-		else
-			mkdir $zip_root_real/luajit/lib
-			cp liblua.a $zip_root_real/luajit/lib
-		fi
+		mkdir $zip_root_real/luajit/lib
+		cp liblua.a $zip_root_real/luajit/lib
 		cd ..
 	fi
 	cp src/lauxlib.h $zip_root_real/luajit/include
@@ -1145,11 +1133,6 @@ if [[ $BSH_HOST_PLATFORM == windows ]]; then
 		lib/libpng.dll.a \
 		lib/libpng.a \
 		bin/libzlib.dll;;
-	mingw-dynamic) rm \
-		lib/libpng.a \
-		lib/libzlibstatic.a \
-		lib/libpng16$debug_d.a \
-		lib/libpng.dll.a;;
 	esac
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	for junk in lib/libz*dylib*; do rm -r $junk; done

@@ -21,7 +21,6 @@ configurations = []
 for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_build_platform,        runs_on in [
 	(   'x86_64' ,           'linux',         'gnu',           'static',            'linux', 'ubuntu-20.04' ),
 	(   'x86_64' ,         'windows',       'mingw',           'static',          'windows', 'windows-2019' ),
-	(   'x86_64' ,         'windows',       'mingw',          'dynamic',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
 	(      'x86' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
@@ -45,6 +44,7 @@ for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_bui
 			'bsh_host_libc': bsh_host_libc,
 			'bsh_static_dynamic': bsh_static_dynamic,
 			'bsh_debug_release': debug_release,
+			'force_msys2_bash': (bsh_host_platform == 'windows' and bsh_host_libc == 'mingw') and 'yes' or 'no',
 			'runs_on': runs_on,
 			'asset_name': f'tpt-libs-prebuilt-{bsh_host_arch}-{bsh_host_platform}-{bsh_host_libc}-{bsh_static_dynamic}-{debug_release}-{vtag}',
 			'job_name': job_name,

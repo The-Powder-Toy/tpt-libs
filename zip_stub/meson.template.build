@@ -80,6 +80,7 @@ if host_platform != 'emscripten'
 				c_compiler.find_library('wsock32'),
 				c_compiler.find_library('ws2_32'),
 				c_compiler.find_library('crypt32'),
+				c_compiler.find_library('bcrypt'),
 			] : [],
 			host_platform == 'darwin' ? dependency('AppleFrameworks', modules: [
 				'Security',
