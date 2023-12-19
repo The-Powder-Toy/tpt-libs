@@ -35,6 +35,9 @@ for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_bui
 	(   'wasm32' ,      'emscripten',  'emscripten',           'static',            'linux', 'ubuntu-20.04' ),
 ]:
 	for debug_release in [ 'debug', 'release' ]:
+		job_name = f'build+target={bsh_host_arch}-{bsh_host_platform}-{bsh_host_libc}-{bsh_static_dynamic}-{debug_release}'
+		if bsh_build_platform != bsh_host_platform:
+			job_name += f'+bplatform={bsh_build_platform}'
 		configurations.append({
 			'bsh_build_platform': bsh_build_platform,
 			'bsh_host_arch': bsh_host_arch,
@@ -44,6 +47,7 @@ for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_bui
 			'bsh_debug_release': debug_release,
 			'runs_on': runs_on,
 			'asset_name': f'tpt-libs-prebuilt-{bsh_host_arch}-{bsh_host_platform}-{bsh_host_libc}-{bsh_static_dynamic}-{debug_release}-{vtag}',
+			'job_name': job_name,
 		})
 
 set_output('matrix', json.dumps({ 'include': configurations }))
