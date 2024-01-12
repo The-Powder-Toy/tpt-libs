@@ -4,6 +4,11 @@ set -euo pipefail
 shopt -s globstar
 IFS=$'\n\t'
 
+if [[ -z ${ASSET_URL-} ]]; then
+	>&2 echo "ASSET_URL not set"
+	exit 1
+fi
+
 . ./.github/common.sh
 
 cd $temp_dir

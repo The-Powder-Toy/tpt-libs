@@ -11,7 +11,6 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
       do_release: ${{ steps.prepare.outputs.do_release }}
       matrix: ${{ steps.prepare.outputs.matrix }}
       vtag: ${{ steps.prepare.outputs.vtag }}
@@ -27,14 +26,9 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
       - if: steps.prepare.outputs.do_release == 'yes'
         id: create_release
-        uses: LBPHacker/create-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
+        run: bash -c './.github/create-release.sh'
   build:
     runs-on: ${{ matrix.runs_on }}
     name: ${{ matrix.job_name }}
@@ -64,14 +58,11 @@ jobs:
           BSH_VTAG: ${{ needs.prepare.outputs.vtag }}
       - if: needs.prepare.outputs.do_release == 'yes'
         id: upload_release_asset
-        uses: LBPHacker/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.prepare.outputs.release_upload_url }}
-          asset_path: temp/libraries.zip
-          asset_name: ${{ matrix.asset_name }}.zip
-          asset_content_type: application/zip
+          ASSET_PATH: temp/libraries.zip
+          ASSET_NAME: ${{ matrix.asset_name }}.zip
+        run: bash -c './.github/upload-release-asset.sh'
       - if: needs.prepare.outputs.do_release == 'yes'
         run: bash -c './.github/wrapfile.sh'
         env:
@@ -84,11 +75,8 @@ jobs:
           BSH_VTAG: ${{ needs.prepare.outputs.vtag }}
           ASSET_URL: ${{ steps.upload_release_asset.outputs.browser_download_url }}
       - if: needs.prepare.outputs.do_release == 'yes'
-        uses: LBPHacker/upload-release-asset@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.prepare.outputs.release_upload_url }}
-          asset_path: temp/libraries.wrap
-          asset_name: ${{ matrix.asset_name }}.wrap
-          asset_content_type: text/plain
+          ASSET_PATH: temp/libraries.wrap
+          ASSET_NAME: ${{ matrix.asset_name }}.wrap
+        run: bash -c './.github/upload-release-asset.sh'
