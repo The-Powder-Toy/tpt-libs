@@ -98,7 +98,7 @@ esac
 
 android_platform=none
 if [[ $BSH_HOST_PLATFORM == android ]]; then
-	android_platform=android-30
+	android_platform=android-31
 	if [[ -z "${JAVA_HOME_8_X64-}" ]]; then
 		>&2 echo "JAVA_HOME_8_X64 not set"
 		exit 1
