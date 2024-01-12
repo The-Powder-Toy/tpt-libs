@@ -96,6 +96,23 @@ wasm32-emscripten-emscripten-static) ;;
 *) >&2 echo "configuration $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC is not supported" && exit 1;;
 esac
 
+android_platform=none
+if [[ $BSH_HOST_PLATFORM == android ]]; then
+	android_platform=android-30
+	if [[ -z "${JAVA_HOME_8_X64-}" ]]; then
+		>&2 echo "JAVA_HOME_8_X64 not set"
+		exit 1
+	fi
+	if [[ -z "${ANDROID_SDK_ROOT-}" ]]; then
+		>&2 echo "ANDROID_SDK_ROOT not set"
+		exit 1
+	fi
+	if [[ -z "${ANDROID_NDK_LATEST_HOME-}" ]]; then
+		>&2 echo "ANDROID_NDK_LATEST_HOME not set"
+		exit 1
+	fi
+fi
+
 if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 	case $BSH_HOST_PLATFORM in
 	linux)
@@ -119,6 +136,10 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 		x86)     ;&
 		arm)     sudo apt install libc6-dev-i386;;
 		esac
+		(
+			export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/tools/bin:$PATH
+			sdkmanager "platforms;$android_platform"
+		)
 		;;
 	emscripten)
 		git clone https://github.com/emscripten-core/emsdk.git --branch 3.1.30
@@ -132,19 +153,10 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 	esac
 fi
 
-android_platform=none
 if [[ $BSH_HOST_PLATFORM == android ]]; then
-	android_platform=android-30
-	if [[ -z "${JAVA_HOME_8_X64-}" ]]; then
-		>&2 echo "JAVA_HOME_8_X64 not set"
-		exit 1
-	fi
-	if [[ -z "${ANDROID_SDK_ROOT-}" ]]; then
-		>&2 echo "ANDROID_SDK_ROOT not set"
-		exit 1
-	fi
-	if [[ -z "${ANDROID_NDK_LATEST_HOME-}" ]]; then
-		>&2 echo "ANDROID_NDK_LATEST_HOME not set"
+	android_platform_jar=$ANDROID_SDK_ROOT/platforms/$android_platform/android.jar
+	if ! [[ -f $android_platform_jar ]]; then
+		>&2 echo "$android_platform_jar not found"
 		exit 1
 	fi
 fi
@@ -673,7 +685,7 @@ function compile_sdl2() {
 			-source 1.8 \
 			-target 1.8 \
 			-bootclasspath $JAVA_HOME_8_X64/jre/lib/rt.jar \
-			-classpath $ANDROID_SDK_ROOT/platforms/$android_platform/android.jar \
+			-classpath $android_platform_jar \
 			$(find . -name "*.java")
 		$JAVA_HOME_8_X64/bin/jar cMf sdl.jar $(find . -name "*.class")
 		cp sdl.jar $zip_root_real/lib
