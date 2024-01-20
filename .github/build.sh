@@ -117,7 +117,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 	case $BSH_HOST_PLATFORM in
 	linux)
 		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
-			pacman -Syu --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
+			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
 		else
 			sudo apt update
 			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
@@ -125,7 +125,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 		;;
 	windows)
 		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
-			pacman -Syu --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,7zip} patch
+			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,7zip} patch
 		fi
 		;;
 	android)
