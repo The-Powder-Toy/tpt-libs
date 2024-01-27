@@ -1,0 +1,12 @@
+diff -Naur src.old/msvcbuild.bat src.new/msvcbuild.bat
+--- src.old/msvcbuild.bat	2024-01-27 16:34:59.069306700 +0100
++++ src.new/msvcbuild.bat	2024-01-27 16:35:06.396467000 +0100
+@@ -14,7 +14,7 @@
+ @if not defined INCLUDE goto :FAIL
+ 
+ @setlocal
+-@set LJCOMPILE=cl /nologo /c /O2 /W3 /D_CRT_SECURE_NO_DEPRECATE /D_CRT_STDIO_INLINE=__declspec(dllexport)__inline
++@set LJCOMPILE=cl /nologo /c /O2 /W3 /D_CRT_SECURE_NO_DEPRECATE /D_CRT_STDIO_INLINE=__inline
+ @set LJLINK=link /nologo
+ @set LJMT=mt /nologo
+ @set LJLIB=lib /nologo /nodefaultlib

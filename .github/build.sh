@@ -188,8 +188,8 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	x86_64) vs_env_arch=x64;;
 	x86)    vs_env_arch=x86;;
 	esac
-	cmake_vs_toolset=v141
-	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=14.1
+	cmake_vs_toolset=${BSH_VS_TOOLSET_CMAKE-v141}
+	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=${BSH_VS_TOOLSET-14.1}
 	. ./.github/vs-env.sh
 elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
@@ -773,6 +773,7 @@ function compile_luajit() {
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cd src
+		patch_breakpoint $patches_real/luajit-no-export-stdio.patch apply
 		local msvcbuild_configure=./msvcbuild.bat
 		msvcbuild_configure+=$'\t'debug
 		inplace_sed 's|/DLUAJIT_ENABLE_GC64|/DLUAJIT_ENABLE_GC64 /DLUAJIT_ENABLE_LUA52COMPAT|g' msvcbuild.bat
