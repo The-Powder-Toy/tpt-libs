@@ -773,7 +773,6 @@ function compile_luajit() {
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cd src
-		patch_breakpoint $patches_real/luajit-no-export-stdio.patch apply
 		local msvcbuild_configure=./msvcbuild.bat
 		msvcbuild_configure+=$'\t'debug
 		inplace_sed 's|/DLUAJIT_ENABLE_GC64|/DLUAJIT_ENABLE_GC64 /DLUAJIT_ENABLE_LUA52COMPAT|g' msvcbuild.bat
