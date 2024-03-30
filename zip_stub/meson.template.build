@@ -169,6 +169,8 @@ if host_platform != 'emscripten'
 				'Metal',
 				'IOKit',
 				'CoreVideo',
+				'CoreAudio',
+				'AudioToolbox',
 				'Carbon',
 			]) : [],
 			'@0@-@1@'.format(host_platform, host_libc) == 'windows-mingw' ? [

@@ -120,7 +120,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
 		else
 			sudo apt update
-			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
+			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev libasound2-dev libpulse-dev
 		fi
 		;;
 	windows)
@@ -644,7 +644,7 @@ function compile_sdl2() {
 		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
 	fi
 	add_install_flags cmake_configure
-	cmake_configure+=$'\t'-DSDL_AUDIO=OFF
+	cmake_configure+=$'\t'-DSDL_AUDIO=ON
 	cmake_configure+=$'\t'-DSDL_POWER=OFF
 	cmake_configure+=$'\t'-DSDL_LIBC=ON
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
