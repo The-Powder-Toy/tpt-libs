@@ -25,6 +25,8 @@ for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_bui
 	(   'x86_64' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
 	(      'x86' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
 	(      'x86' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
+	(  'aarch64' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
+	(  'aarch64' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
 	(   'x86_64' ,          'darwin',       'macos',           'static',           'darwin',     'macos-12' ),
 	(  'aarch64' ,          'darwin',       'macos',           'static',           'darwin',     'macos-12' ),
 	(      'x86' ,         'android',      'bionic',           'static',            'linux', 'ubuntu-20.04' ),

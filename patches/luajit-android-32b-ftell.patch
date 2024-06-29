@@ -1,7 +1,7 @@
-diff -Naur LuaJIT-2.1.0-beta3.old/src/lib_io.c LuaJIT-2.1.0-beta3.new/src/lib_io.c
---- LuaJIT-2.1.0-beta3.old/src/lib_io.c	2023-10-03 07:29:51.945102197 +0200
-+++ LuaJIT-2.1.0-beta3.new/src/lib_io.c	2023-10-03 07:29:51.985102464 +0200
-@@ -325,26 +325,10 @@
+diff --strip-trailing-cr -Naur LuaJIT-2.1.0-git.old/src/lib_io.c LuaJIT-2.1.0-git.new/src/lib_io.c
+--- LuaJIT-2.1.0-git.old/src/lib_io.c	2024-06-29 22:02:52.323973204 +0200
++++ LuaJIT-2.1.0-git.new/src/lib_io.c	2024-06-29 22:03:08.054461962 +0200
+@@ -337,26 +337,10 @@
      else if (!tvisnil(o))
        lj_err_argt(L, 3, LUA_TNUMBER);
    }

@@ -30,8 +30,8 @@ tarball_hash() {
 	fftw-3.3.8.tar.gz)         sha256sum=6113262f6e92c5bd474f2875fa1b01054c4ad5040f6b0da7c03c98821d9ae303;; # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
 	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;; # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
-	LuaJIT-2.1.0-beta3.tar.gz) sha256sum=1ad2e34b111c802f9d0cdf019e986909123237a28c746b21295b63c9e785d9c3;; # acquired from https://luajit.org/download/LuaJIT-2.1.0-beta3.tar.gz
-	curl-7.86.0.tar.gz)        sha256sum=3dfdd39ba95e18847965cd3051ea6d22586609d9011d91df7bc5521288987a82;; # acquired from https://curl.se/download/curl-7.86.0.tar.gz
+	LuaJIT-2.1.0-git.tar.gz)   sha256sum=d88203e0517df7e1981c8fd3ecb5abd5df1b1c34316160b8842eec7d4be398c6;; # acquired from https://luajit.org/git/luajit.git with git archive --format=tar.gz --prefix=LuaJIT-2.1.0-git/ d06beb0480c5
+	curl-8.7.1.tar.gz)         sha256sum=f91249c87f68ea00cf27c44fdfa5a78423e41e71b7d408e5901a9896d905c495;; # acquired from https://curl.se/download/curl-8.7.1.tar.gz
 	SDL2-2.24.2.tar.gz)        sha256sum=b35ef0a802b09d90ed3add0dcac0e95820804202914f5bb7b0feb710f1a1329f;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.24.2/SDL2-2.24.2.tar.gz
 	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
 	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
@@ -86,6 +86,8 @@ x86_64-windows-msvc-static) ;;
 x86_64-windows-msvc-dynamic) ;;
 x86-windows-msvc-static) ;;
 x86-windows-msvc-dynamic) ;;
+aarch64-windows-msvc-static) ;;
+aarch64-windows-msvc-dynamic) ;;
 x86_64-darwin-macos-static) ;;
 aarch64-darwin-macos-static) ;;
 x86-android-bionic-static) ;;
@@ -125,7 +127,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 		;;
 	windows)
 		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
-			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,7zip} patch
+			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,make,ninja,7zip} patch
 		fi
 		;;
 	android)
@@ -182,15 +184,28 @@ meson_dirs_configure+=$'\t'-Dsbindir=junk.sbindir
 meson_dirs_configure+=$'\t'-Dsharedstatedir=junk.sharedstatedir
 meson_dirs_configure+=$'\t'-Dsysconfdir=junk.sysconfdir
 
+function export_path() {
+	local path=$1
+	if [[ $BSH_BUILD_PLATFORM == windows ]]; then
+		cygpath -m $path
+	else
+		echo $path
+	fi
+}
+
 meson_cross_configure=
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	case $BSH_HOST_ARCH in
-	x86_64) vs_env_arch=x64;;
-	x86)    vs_env_arch=x86;;
+	x86_64)  vs_env_arch=x64      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
+	x86)     vs_env_arch=x86      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
+	aarch64) vs_env_arch=x64_arm64; cmake_vs_toolset=v143; vcvars_ver=14.3;;
 	esac
-	cmake_vs_toolset=${BSH_VS_TOOLSET_CMAKE-v141}
-	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=${BSH_VS_TOOLSET-14.1}
+	cmake_vs_toolset=${BSH_VS_TOOLSET_CMAKE-$cmake_vs_toolset}
+	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=${BSH_VS_TOOLSET-$vcvars_ver}
 	. ./.github/vs-env.sh
+	if [[ $BSH_HOST_ARCH == aarch64 ]]; then
+		meson_cross_configure+=$'\t'--cross-file=$(export_path $repo/.github/msvca64-ghactions.ini)
+	fi
 elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini
@@ -313,15 +328,6 @@ function interactive_breakpoint() {
 	>&2 echo ============== leaving interactive breakpoint $bpname ==============
 }
 
-function export_path() {
-	local path=$1
-	if [[ $BSH_BUILD_PLATFORM == windows ]]; then
-		cygpath -m $path
-	else
-		echo $path
-	fi
-}
-
 function inplace_sed() {
 	local subst=$1
 	local path=$2
@@ -400,7 +406,7 @@ function patch_breakpoint() {
 		interactive_breakpoint patchme
 		cd ..
 		set +e
-		diff -Naur $dir_name.old $dir_name.new > $patch_path
+		diff --strip-trailing-cr -Naur $dir_name.old $dir_name.new > $patch_path
 		local diff_code=$?
 		set -e
 		if [[ $diff_code == 1 ]]; then
@@ -461,6 +467,7 @@ function compile_zlib() {
 	fi
 	add_install_flags cmake_configure
 	cd build
+	echo VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 $cmake_configure ..
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
 		windows_msvc_static_mt
@@ -569,13 +576,18 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd curl-7.86.0.tar.gz curl_version
+	get_and_cd curl-8.7.1.tar.gz curl_version
 	curl_version+="+nghttp2-$nghttp2_version"
 	curl_version+="+zlib-$zlib_version"
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM == arm-android ]]; then
+		patch_breakpoint $patches_real/curl-arm-fseeko.patch apply
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
 	cmake_configure+=$'\t'-DBUILD_TESTING=OFF
+	cmake_configure+=$'\t'-DBUILD_LIBCURL_DOCS=OFF
+	cmake_configure+=$'\t'-DENABLE_CURL_MANUAL=OFF
 	cmake_configure+=$'\t'-DCMAKE_BUILD_TYPE=$cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
@@ -590,6 +602,7 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == windows ]]; then
 		cmake_configure+=$'\t'-DCURL_USE_MBEDTLS=ON
 		cmake_configure+=$'\t'-DCURL_CA_PATH=none
+		cmake_configure+=$'\t'-DCMAKE_PDB_OUTPUT_DIRECTORY=$(export_path $(realpath build))
 		curl_version+="+mbedtls-$mbedtls_version"
 	fi
 	if [[ $BSH_HOST_PLATFORM == darwin ]]; then
@@ -617,10 +630,17 @@ function compile_curl() {
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
-		cp **/libcurl*.pdb $zip_root_real/lib
+		# TODO: there's something wrong on aarch64-windows-msvc-static; no good pdb is generated, which also means
+		#       no debug symbols. I think this also affects other indirect dependencies such as nghttp2, but I have
+		#       no way to verify because I'd have to install vs on an aarch64 machine with windows. I only have
+		#       access to such machines through qemu on x86_64 and I don't like pain THAT much. I'll shelves this
+		#       problem for now because I'm 99% sure it's a vs bug.
+		if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC != aarch64-windows-msvc-static ]]; then
+			cp **/libcurl*.pdb $zip_root_real/lib
+		fi
 	fi
 	cd ..
-	echo 321b1a09ebc30410f2e837c072e5521cf7095b757193af4a7dae1086e36ed31a COPYING | sha256sum -c
+	echo adb1fc06547fd136244179809f7b7c2d2ae6c4534f160aa513af9b6a12866a32 COPYING | sha256sum -c
 	cp COPYING $zip_root_real/licenses/libcurl.LICENSE
 	uncd_and_unget
 	library_versions+="curl_version = '$curl_version-tpt-libs'"$'\n'
@@ -716,6 +736,7 @@ function compile_lua5x() {
 		else
 			meson_configure+=$'\t'-Dcpp_args="['-DLUA_BUILD_AS_DLL']"
 		fi
+		meson_configure+=$meson_cross_configure
 		meson_configure+=$meson_dirs_configure
 		meson_configure+=$'\t'--prefix$'\t'$(export_path $zip_root_real/$subdir)
 		$meson_configure build
@@ -768,7 +789,7 @@ function compile_luajit() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd LuaJIT-2.1.0-beta3.tar.gz luajit_version
+	get_and_cd LuaJIT-2.1.0-git.tar.gz luajit_version
 	mkdir $zip_root_real/luajit
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -851,7 +872,7 @@ function compile_luajit() {
 	cp src/lua.h $zip_root_real/luajit/include
 	cp src/luaconf.h $zip_root_real/luajit/include
 	cp src/lualib.h $zip_root_real/luajit/include
-	echo accb335aa3102f80d31caa2c2508fbcb795314106493519a367f13a87d0e87de COPYRIGHT | sha256sum -c
+	echo 4e546dc0556ca5f1514ae9d9bad723501a51da556342590b7076fb42f2930f25 COPYRIGHT | sha256sum -c
 	cp COPYRIGHT $zip_root_real/licenses/luajit.LICENSE
 	uncd_and_unget
 	library_versions+="luajit_version = '$luajit_version-tpt-libs'"$'\n'
