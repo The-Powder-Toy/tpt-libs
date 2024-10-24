@@ -31,10 +31,10 @@ tarball_hash() {
 	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;; # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	LuaJIT-2.1.0-git.tar.gz)   sha256sum=d88203e0517df7e1981c8fd3ecb5abd5df1b1c34316160b8842eec7d4be398c6;; # acquired from https://luajit.org/git/luajit.git with git archive --format=tar.gz --prefix=LuaJIT-2.1.0-git/ d06beb0480c5
-	curl-8.7.1.tar.gz)         sha256sum=f91249c87f68ea00cf27c44fdfa5a78423e41e71b7d408e5901a9896d905c495;; # acquired from https://curl.se/download/curl-8.7.1.tar.gz
-	SDL2-2.24.2.tar.gz)        sha256sum=b35ef0a802b09d90ed3add0dcac0e95820804202914f5bb7b0feb710f1a1329f;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.24.2/SDL2-2.24.2.tar.gz
+	curl-8.10.1.tar.gz)        sha256sum=d15ebab765d793e2e96db090f0e172d127859d78ca6f6391d7eafecfd894bbc0;; # acquired from https://curl.se/download/curl-8.10.1.tar.gz
+	SDL2-2.30.9.tar.gz)        sha256sum=24b574f71c87a763f50704bbb630cbe38298d544a1f890f099a4696b1d6beba4;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-2.30.9.tar.gz
 	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
-	mbedtls-3.2.1.tar.gz)      sha256sum=d0e77a020f69ad558efc660d3106481b75bd3056d6301c31564e04a0faae88cc;; # acquired from https://codeload.github.com/Mbed-TLS/mbedtls/tar.gz/refs/tags/v3.2.1
+	mbedtls-3.6.2.tar.bz2)     sha256sum=8b54fb9bcf4d5a7078028e0520acddefb7900b3e66fec7f7175bb5b7d85ccdca;; # acquired from https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.2/mbedtls-3.6.2.tar.bz2
 	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
 	bzip2-1.0.8.tar.gz)        sha256sum=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269;; # acquired from https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
 	nghttp2-1.50.0.tar.gz)     sha256sum=6de469efc8e9d47059327a6736aebe0a7d73f57e5e37ab4c4f838fb1eebd7889;; # acquired from https://github.com/nghttp2/nghttp2/archive/refs/tags/v1.50.0.tar.gz
@@ -122,7 +122,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
 		else
 			sudo apt update
-			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev
+			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev libwayland-dev libxkbcommon-dev libegl-dev
 		fi
 		;;
 	windows)
@@ -198,7 +198,7 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	case $BSH_HOST_ARCH in
 	x86_64)  vs_env_arch=x64      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
 	x86)     vs_env_arch=x86      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
-	aarch64) vs_env_arch=x64_arm64; cmake_vs_toolset=v143; vcvars_ver=14.3;;
+	aarch64) vs_env_arch=x64_arm64; cmake_vs_toolset=v143; vcvars_ver=14.29;;
 	esac
 	cmake_vs_toolset=${BSH_VS_TOOLSET_CMAKE-$cmake_vs_toolset}
 	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=${BSH_VS_TOOLSET-$vcvars_ver}
@@ -296,6 +296,9 @@ function check_program() {
 }
 
 make=make
+if which mingw32-make; then
+	make=mingw32-make
+fi
 check_program cmake
 check_program 7z
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -340,6 +343,19 @@ function inplace_sed() {
 
 function dos2unix() {
 	inplace_sed 's/\r//' $1
+}
+
+function angry_patch() {
+	>&2 echo "fixing line endings in $1 because patch is not competent enough to do it on its own"
+	dos2unix $1
+	for line in $(grep $1 -Fe "--- "); do # not perfect but I don't care
+		file="$(echo "$line" | cut -d ' ' -f 2 | cut -d '/' -f 2-)"
+		if [[ -f "$file" ]]; then
+			>&2 echo "fixing line endings in $file because patch is not competent enough to do it on its own"
+			dos2unix "$file"
+		fi
+	done
+	patch -p1 -i $1
 }
 
 function add_install_flags() {
@@ -390,7 +406,7 @@ function patch_breakpoint() {
 	esac
 	if [[ -f $patch_path ]]; then
 		>&2 echo ============== applying patch $patch_path ==============
-		patch -p1 -i $patch_path
+		angry_patch $patch_path
 	fi
 	case $mode in
 	apply) ;;
@@ -488,7 +504,7 @@ function compile_mbedtls() {
 	if [[ $BSH_HOST_PLATFORM == darwin ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd mbedtls-3.2.1.tar.gz mbedtls_version
+	get_and_cd mbedtls-3.6.2.tar.bz2 mbedtls_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -515,7 +531,7 @@ function compile_mbedtls() {
 		cp **/mbed*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 LICENSE | sha256sum -c
+	echo 9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/mbedtls.LICENSE
 	uncd_and_unget
 }
@@ -576,12 +592,9 @@ function compile_curl() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd curl-8.7.1.tar.gz curl_version
+	get_and_cd curl-8.10.1.tar.gz curl_version
 	curl_version+="+nghttp2-$nghttp2_version"
 	curl_version+="+zlib-$zlib_version"
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM == arm-android ]]; then
-		patch_breakpoint $patches_real/curl-arm-fseeko.patch apply
-	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -630,13 +643,9 @@ function compile_curl() {
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
-		# TODO: there's something wrong on aarch64-windows-msvc-static; no good pdb is generated, which also means
-		#       no debug symbols. I think this also affects other indirect dependencies such as nghttp2, but I have
-		#       no way to verify because I'd have to install vs on an aarch64 machine with windows. I only have
-		#       access to such machines through qemu on x86_64 and I don't like pain THAT much. I'll shelves this
-		#       problem for now because I'm 99% sure it's a vs bug.
-		if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC != aarch64-windows-msvc-static ]]; then
-			cp **/libcurl*.pdb $zip_root_real/lib
+		if ! cp **/libcurl*.pdb $zip_root_real/lib; then
+			# TODO: libcurl's cmake config does not set the pdb's name correctly so we grab anything we see
+			cp **/*.pdb $zip_root_real/lib/libcurl.pdb
 		fi
 	fi
 	cd ..
@@ -650,7 +659,7 @@ function compile_sdl2() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd SDL2-2.24.2.tar.gz sdl2_version
+	get_and_cd SDL2-2.30.9.tar.gz sdl2_version
 	patch_breakpoint $patches_real/sdl-no-dynapi.patch apply
 	patch_breakpoint $patches_real/sdl-fix-haptic-inclusion.patch apply
 	if [[ $BSH_HOST_PLATFORM == linux ]]; then
@@ -711,7 +720,7 @@ function compile_sdl2() {
 		cp sdl.jar $zip_root_real/lib
 		cd ../../../../..
 	fi
-	echo fcb07e07ac6bc8b2fcf047b50431ef4ebe5b619d7ca7c82212018309a9067426 LICENSE.txt | sha256sum -c
+	echo 9b9e1764f06701bcf7ce21e942c682d5921ba0900c6fca760321b1c8837a9662 LICENSE.txt | sha256sum -c
 	cp LICENSE.txt $zip_root_real/licenses/sdl2.LICENSE
 	uncd_and_unget
 	library_versions+="sdl2_version = '$sdl2_version-tpt-libs'"$'\n'

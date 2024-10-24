@@ -4,7 +4,7 @@ diff -Naur bzip2-1.0.8.old/meson.build bzip2-1.0.8.new/meson.build
 @@ -0,0 +1,24 @@
 +project('bzip2', 'c', default_options: 'c_std=c99')
 +
-+bz2_args = [ '-D_FILE_OFFSET_BITS=64' ]
++bz2_args = [ '-D_FILE_OFFSET_BITS=64', '-DBZ_STRICT_ANSI' ]
 +if host_machine.system() == 'windows'
 +	bz2_args += [ '-DWIN32' ]
 +endif

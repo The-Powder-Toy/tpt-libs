@@ -10,7 +10,7 @@ diff -Naur SDL2-2.24.2.old/CMakeLists.txt SDL2-2.24.2.new/CMakeLists.txt
 -        #ifndef EVIOCGNAME
 -        #error EVIOCGNAME() ioctl not available
 -        #endif
--        int main(int argc, char** argv) { return 0; }" HAVE_INPUT_EVENTS)
+-        int main(int argc, char** argv) { return 0; }" HAVE_LINUX_INPUT_H)
 -
      if(LINUX)
        check_c_source_compiles("
