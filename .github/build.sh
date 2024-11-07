@@ -1115,7 +1115,7 @@ compile lua52
 compile luajit
 
 cat - << MESON > $temp_dir/$zip_root/meson.build
-project('tpt-libs-prebuilt', [ 'c', 'cpp' ])
+project('tpt-libs-prebuilt', 'cpp', version: '$BSH_VTAG')
 
 host_arch = '$BSH_HOST_ARCH'
 host_platform = '$BSH_HOST_PLATFORM'
