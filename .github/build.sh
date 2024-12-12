@@ -314,7 +314,8 @@ fi
 mkdir $temp_dir
 cp -r zip_stub $temp_dir/$zip_root
 mkdir $temp_dir/$zip_root/licenses
-zip_root_real=$(realpath $temp_dir/$zip_root)
+temp_dir_real=$(realpath $temp_dir)
+zip_root_real=$temp_dir_real/$zip_root
 library_versions=
 
 patches_real=$(realpath patches)
@@ -347,15 +348,18 @@ function dos2unix() {
 
 function angry_patch() {
 	>&2 echo "fixing line endings in $1 because patch is not competent enough to do it on its own"
-	dos2unix $1
-	for line in $(grep $1 -Fe "--- "); do # not perfect but I don't care
+	patched_patch=$temp_dir_real/.patched_patch
+	cp $1 $patched_patch
+	dos2unix $patched_patch
+	for line in $(grep $patched_patch -Fe "--- "); do # not perfect but I don't care
 		file="$(echo "$line" | cut -d ' ' -f 2 | cut -d '/' -f 2-)"
 		if [[ -f "$file" ]]; then
 			>&2 echo "fixing line endings in $file because patch is not competent enough to do it on its own"
 			dos2unix "$file"
 		fi
 	done
-	patch -p1 -i $1
+	patch -p1 -i $patched_patch
+	rm $patched_patch
 }
 
 function add_install_flags() {
@@ -778,8 +782,8 @@ function compile_lua5x() {
 
 function compile_lua52() {
 	get_and_cd lua-5.2.4.tar.gz lua52_version
+	echo aaa571c445bdafe72c7e116bda8f2a415e8dcb05d988e4072e6dc15029c32fae src/lua.h | sha256sum -c
 	compile_lua5x lua5.2
-	echo 60302176c6c1f18d2d0aa3dc8f89ba1ed4c83bd24b79cc84542fbaefd04741cf src/lua.h | sha256sum -c
 	sed -n 425,444p src/lua.h > $zip_root_real/licenses/lua5.2.LICENSE
 	uncd_and_unget
 	library_versions+="lua52_version = '$lua52_version-tpt-libs'"$'\n'
@@ -787,8 +791,8 @@ function compile_lua52() {
 
 function compile_lua51() {
 	get_and_cd lua-5.1.5.tar.gz lua51_version
+	echo 470551c185f058360f8d0f9e5c54a29a3950f78af6a93f3fe9e4039a380c7b87 src/lua.h | sha256sum -c
 	compile_lua5x lua5.1
-	echo d293b0c707a42c251a97127a72471c4310f3290517e77717fc1e7365ecf54584 src/lua.h | sha256sum -c
 	sed -n 369,388p src/lua.h > $zip_root_real/licenses/lua5.1.LICENSE
 	uncd_and_unget
 	library_versions+="lua51_version = '$lua51_version-tpt-libs'"$'\n'
