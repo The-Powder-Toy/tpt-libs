@@ -122,7 +122,7 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc
 		else
 			sudo apt update
-			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev libwayland-dev libxkbcommon-dev libegl-dev
+			sudo apt install libc6-dev fcitx-libs-dev libibus-1.0-dev libwayland-dev libxkbcommon-dev libegl-dev libxrandr-dev
 		fi
 		;;
 	windows)
@@ -809,7 +809,7 @@ function compile_luajit() {
 		cd src
 		local msvcbuild_configure=./msvcbuild.bat
 		msvcbuild_configure+=$'\t'debug
-		inplace_sed 's|/DLUAJIT_ENABLE_GC64|/DLUAJIT_ENABLE_GC64 /DLUAJIT_ENABLE_LUA52COMPAT|g' msvcbuild.bat
+		inplace_sed 's|cl /nologo|cl /nologo /DLUAJIT_ENABLE_LUA52COMPAT|g' msvcbuild.bat
 		inplace_sed 's|/O2|/O2 /MD|g' msvcbuild.bat # make sure we have an /MD to replace; dynamic, release
 		if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 			msvcbuild_configure+=$'\t'static
