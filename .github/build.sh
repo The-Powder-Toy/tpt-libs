@@ -597,6 +597,7 @@ function compile_curl() {
 		return
 	fi
 	get_and_cd curl-8.10.1.tar.gz curl_version
+	patch_breakpoint $patches_real/curl-mbedtls-usage.patch apply
 	curl_version+="+nghttp2-$nghttp2_version"
 	curl_version+="+zlib-$zlib_version"
 	mkdir build

@@ -1,0 +1,102 @@
+diff --strip-trailing-cr -Naur curl-8.10.1.old/lib/vtls/mbedtls.c curl-8.10.1.new/lib/vtls/mbedtls.c
+--- curl-8.10.1.old/lib/vtls/mbedtls.c  2024-12-22 20:24:54.944116200 +0100
++++ curl-8.10.1.new/lib/vtls/mbedtls.c  2024-12-22 20:22:04.927962100 +0100
+@@ -113,6 +113,11 @@
+   int *ciphersuites;
+   BIT(initialized); /* mbedtls_ssl_context is initialized */
+   BIT(sent_shutdown);
++  BIT(ww_buffer_valid);
++  unsigned char *ww_buffer;
++  size_t ww_buffer_size;
++  size_t ww_buffer_used;
++  size_t ww_buffer_from;
+ };
+ 
+ /* apply threading? */
+@@ -1174,14 +1179,73 @@
+   struct mbed_ssl_backend_data *backend =
+     (struct mbed_ssl_backend_data *)connssl->backend;
+   int ret = -1;
++  size_t orig_len = len;
++
++  if(backend->ww_buffer_valid) {
++    if(backend->ww_buffer_used) {
++      // if there were bytes in the fragment, match the last byte against what
++      // libcurl is retrying to get us to send
++      DEBUGASSERT(len);
++      DEBUGASSERT(*(unsigned char *)mem == backend->ww_buffer[backend->ww_buffer_used - 1]);
++    }
++    // restore the same arguments as were passed to the last call (functionally
++    // speaking anyway; the pointer will be different but the data it points to
++    // will be the same)
++    len = backend->ww_buffer_used - backend->ww_buffer_from;
++    mem = backend->ww_buffer + backend->ww_buffer_from;
++  }
+ 
+   (void)data;
+   DEBUGASSERT(backend);
+   ret = mbedtls_ssl_write(&backend->ssl, (unsigned char *)mem, len);
+ 
++  if(ret >= 0 && backend->ww_buffer_valid) {
++    // some of the data we stashed away is done sending, but we can't fully give
++    // control back to libcurl until all this data is done sending, and it may
++    // very well yet result in MBEDTLS_ERR_SSL_WANT_WRITE returns from mbedtls
++    DEBUGASSERT(backend->ww_buffer_from + ret <= backend->ww_buffer_used);
++    backend->ww_buffer_from += ret;
++    if(backend->ww_buffer_from < backend->ww_buffer_used)
++      // if we're not done sending the data we stashed away, tell libcurl that
++      // we're still working on it
++      ret = MBEDTLS_ERR_SSL_WANT_WRITE;
++  }
++  if(ret != MBEDTLS_ERR_SSL_WANT_WRITE && backend->ww_buffer_valid && backend->ww_buffer_from == backend->ww_buffer_used) {
++    // if there were bytes in the fragment, tell libcurl that we have finally
++    // managed to send that one last byte that we kept for matching against; if
++    // not, tell it that the lack of bytes has been successfully sent
++    ret = backend->ww_buffer_used ? 1 : 0;
++    backend->ww_buffer_from = 0;
++    backend->ww_buffer_used = 0;
++    backend->ww_buffer_valid = FALSE;
++  }
++  if(ret == MBEDTLS_ERR_SSL_WANT_WRITE && !backend->ww_buffer_valid) {
++    if(backend->ww_buffer_size < len) {
++      backend->ww_buffer_size = len;
++      Curl_safefree(backend->ww_buffer);
++      backend->ww_buffer = malloc(backend->ww_buffer_size);
++      if(!backend->ww_buffer)
++        return CURLE_OUT_OF_MEMORY;
++    }
++    memcpy(backend->ww_buffer, mem, len);
++    backend->ww_buffer_used = len;
++    backend->ww_buffer_valid = TRUE;
++    if(len) {
++      // if there were bytes in the fragment, report that all of them but the
++      // last one has been sent (any number could be reported that is less than
++      // len, but the remaining bytes will be attempted to sent again later and
++      // we have to match them against what is already committed inside mbedtls;
++      // it's by far the easiest to hold on to just one, which is fast to match)
++      ret = len - 1;
++    }
++    // if there were no bytes in the fragment, let the original logic return
++    // CURLE_AGAIN, as this is the only way to make libcurl keep trying to send
++    // the lack of bytes
++  }
++
+   if(ret < 0) {
+     CURL_TRC_CF(data, cf, "mbedtls_ssl_write(len=%zu) -> -0x%04X",
+-                len, -ret);
++                orig_len, -ret);
+     *curlcode = ((ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+ #ifdef TLS13_SUPPORT
+       || (ret == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+@@ -1304,6 +1368,11 @@
+     mbedtls_x509_crl_free(&backend->crl);
+ #endif
+     Curl_safefree(backend->ciphersuites);
++    Curl_safefree(backend->ww_buffer);
++    backend->ww_buffer_size = 0;
++    backend->ww_buffer_used = 0;
++    backend->ww_buffer_from = 0;
++    backend->ww_buffer_valid = FALSE;
+     mbedtls_ssl_config_free(&backend->config);
+     mbedtls_ssl_free(&backend->ssl);
+     mbedtls_ctr_drbg_free(&backend->ctr_drbg);
