@@ -20,6 +20,7 @@ set_output('vtag', vtag)
 configurations = []
 for bsh_host_arch, bsh_host_platform, bsh_host_libc, bsh_static_dynamic, bsh_build_platform,        runs_on in [
 	(   'x86_64' ,           'linux',         'gnu',           'static',            'linux', 'ubuntu-22.04' ),
+	(  'aarch64' ,           'linux',         'gnu',           'static',        'linux', 'ubuntu-22.04-arm' ),
 	(   'x86_64' ,         'windows',       'mingw',           'static',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',           'static',          'windows', 'windows-2019' ),
 	(   'x86_64' ,         'windows',        'msvc',          'dynamic',          'windows', 'windows-2019' ),
