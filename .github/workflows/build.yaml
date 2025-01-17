@@ -37,6 +37,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
+      - if: matrix.runs_on == 'ubuntu-22.04-arm' # TODO: undo; see https://github.com/orgs/community/discussions/148648#discussioncomment-11858098
+        run: for var in HOME PATH XDG_CONFIG_HOME; do sed -Ee "s/^/${var}=/" -e 's/(runner)admin/\1/g' <<< "${!var}"; done | tee -a "$GITHUB_ENV"
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - if: matrix.force_msys2_bash == 'yes'
