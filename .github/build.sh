@@ -26,18 +26,18 @@ repo=$(realpath .)
 tarball_hash() {
 	local tarball_name=$1
 	case $tarball_name in
-	zlib-1.2.11.tar.gz)        sha256sum=c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1;; # acquired from https://zlib.net/zlib-1.2.11.tar.gz
+	zlib-1.3.1.tar.gz)         sha256sum=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23;; # acquired from https://www.zlib.net/zlib-1.3.1.tar.gz
 	fftw-3.3.8.tar.gz)         sha256sum=6113262f6e92c5bd474f2875fa1b01054c4ad5040f6b0da7c03c98821d9ae303;; # acquired from http://www.fftw.org/fftw-3.3.8.tar.gz (eww http)
 	lua-5.1.5.tar.gz)          sha256sum=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333;; # acquired from https://www.lua.org/ftp/lua-5.1.5.tar.gz
 	lua-5.2.4.tar.gz)          sha256sum=b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b;; # acquired from https://www.lua.org/ftp/lua-5.2.4.tar.gz
 	LuaJIT-2.1.0-git.tar.gz)   sha256sum=d88203e0517df7e1981c8fd3ecb5abd5df1b1c34316160b8842eec7d4be398c6;; # acquired from https://luajit.org/git/luajit.git with git archive --format=tar.gz --prefix=LuaJIT-2.1.0-git/ d06beb0480c5
 	curl-8.10.1.tar.gz)        sha256sum=d15ebab765d793e2e96db090f0e172d127859d78ca6f6391d7eafecfd894bbc0;; # acquired from https://curl.se/download/curl-8.10.1.tar.gz
 	SDL2-2.30.9.tar.gz)        sha256sum=24b574f71c87a763f50704bbb630cbe38298d544a1f890f099a4696b1d6beba4;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-2.30.9.tar.gz
-	libpng-1.6.37.tar.gz)      sha256sum=daeb2620d829575513e35fecc83f0d3791a620b9b93d800b763542ece9390fb4;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.37.tar.gz
+	libpng-1.6.49.tar.gz)      sha256sum=d173dada6181ef1638bcdb9526dd46a0f5eee08e3be9615e628ae54f888f17f9;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.49.tar.gz
 	mbedtls-3.6.2.tar.bz2)     sha256sum=8b54fb9bcf4d5a7078028e0520acddefb7900b3e66fec7f7175bb5b7d85ccdca;; # acquired from https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.2/mbedtls-3.6.2.tar.bz2
 	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
 	bzip2-1.0.8.tar.gz)        sha256sum=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269;; # acquired from https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
-	nghttp2-1.50.0.tar.gz)     sha256sum=6de469efc8e9d47059327a6736aebe0a7d73f57e5e37ab4c4f838fb1eebd7889;; # acquired from https://github.com/nghttp2/nghttp2/archive/refs/tags/v1.50.0.tar.gz
+	nghttp2-1.66.0.tar.gz)     sha256sum=e178687730c207f3a659730096df192b52d3752786c068b8e5ee7aeb8edae05a;; # acquired from https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.gz
 	*)                                         >&2 echo "no such tarball (update tarball_hash)" && exit 1;;
 	esac
 }
@@ -339,7 +339,7 @@ function inplace_sed() {
 	if [[ $BSH_BUILD_PLATFORM == darwin ]]; then
 		sed -i "" -e $subst $path
 	else
-		sed -i $subst $path
+		sed -Ei $subst $path
 	fi
 }
 
@@ -466,18 +466,30 @@ static-debug) msvc_rt=MTd;;
 static-release) msvc_rt=MT;;
 esac
 
-function windows_msvc_static_mt() {
-	inplace_sed 's|/MD|/MT|g' CMakeCache.txt # static msvcrt
+function windows_msvc_static_mt_cmakecache() {
+	inplace_sed 's|(-\|/)MDd?||g' CMakeCache.txt
+	inplace_sed 's|CMAKE_C(XX)?_FLAGS_RELWITHDEBINFO:STRING=|\0/MT |g' CMakeCache.txt
+	inplace_sed 's|CMAKE_C(XX)?_FLAGS_DEBUG:STRING=|\0/MTd |g' CMakeCache.txt
+}
+
+function windows_msvc_static_mt_cmakelists() {
+	IFS=$'\t'
+	inplace_sed 's|^project.*$|set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")\
+\0|g' CMakeLists.txt
+	IFS=$'\n\t'
 }
 
 function compile_zlib() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd zlib-1.2.11.tar.gz zlib_version
+	get_and_cd zlib-1.3.1.tar.gz zlib_version
 	patch_breakpoint $patches_real/zlib-install-dirs.patch apply
 	if [[ $BSH_HOST_PLATFORM != windows ]]; then
 		patch_breakpoint $patches_real/zlib-gz-intmax-visibility.patch apply
+	fi
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		windows_msvc_static_mt_cmakelists
 	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
@@ -490,17 +502,14 @@ function compile_zlib() {
 	cd build
 	echo VERBOSE=1 $cmake_configure ..
 	VERBOSE=1 $cmake_configure ..
-	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
-		windows_msvc_static_mt
-	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cp **/zlib*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo 7960b6b1cc63e619abb77acaea5427159605afee8c8b362664f4effc7d7f7d15 README | sha256sum -c
-	sed -n 85,106p README > $zip_root_real/licenses/zlib.LICENSE
+	echo d106dcdb2a0b3087cb3a2380b9f00a0bbadc7eb835cd80408f94a2d78d69727d README | sha256sum -c
+	sed -n 84,105p README > $zip_root_real/licenses/zlib.LICENSE
 	uncd_and_unget
 	library_versions+="zlib_version = '$zlib_version-tpt-libs'"$'\n'
 }
@@ -545,9 +554,12 @@ function compile_libpng() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd libpng-1.6.37.tar.gz libpng_version
+	get_and_cd libpng-1.6.49.tar.gz libpng_version
 	libpng_version+="+zlib-$zlib_version"
-	patch_breakpoint $patches_real/libpng-install-dirs.patch apply
+	patch_breakpoint $patches_real/libpng-arm-no-neon.patch apply
+	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
+		windows_msvc_static_mt_cmakelists
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -556,11 +568,7 @@ function compile_libpng() {
 		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
 	fi
 	add_install_flags cmake_configure
-	cmake_configure+=$'\t'-DPNG_BUILD_ZLIB=ON
 	cmake_configure+=$'\t'-DZLIB_INCLUDE_DIR=$(export_path $zip_root_real/include)
-	if [[ $BSH_HOST_ARCH == arm ]] || [[ $BSH_HOST_ARCH == aarch64 ]]; then
-		patch_breakpoint $patches_real/libpng-arm-no-neon.patch apply
-	fi
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		add_android_flags cmake_configure
 	fi
@@ -578,16 +586,13 @@ function compile_libpng() {
 	fi
 	cd build
 	VERBOSE=1 $cmake_configure ..
-	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
-		windows_msvc_static_mt
-	fi
 	VERBOSE=1 cmake --build . -j$NPROC --config $cmake_build_type
 	VERBOSE=1 cmake --install . --config $cmake_build_type
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 		cp **/*png*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo bf5e22b9dce8464064ae17a48ea1133c3369ac9e1d80ef9e320e5219aa14ea9b LICENSE | sha256sum -c
+	echo 16d9daaafbf63a31a5bdc91d4600972548fef5aaa1244202393288dbd079c49a LICENSE | sha256sum -c
 	cp LICENSE $zip_root_real/licenses/libpng.LICENSE
 	uncd_and_unget
 	library_versions+="libpng_version = '$libpng_version-tpt-libs'"$'\n'
@@ -895,6 +900,7 @@ function compile_luajit() {
 
 function compile_fftw() {
 	get_and_cd fftw-3.3.8.tar.gz fftw_version
+	patch_breakpoint $patches_real/fftw-cmake-version.patch apply
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -925,7 +931,7 @@ function compile_fftw() {
 	cd build
 	VERBOSE=1 $cmake_configure ..
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC == windows-msvc-static ]]; then
-		windows_msvc_static_mt
+		windows_msvc_static_mt_cmakecache
 	fi
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		inplace_sed 's|CMAKE_C_FLAGS:STRING=|CMAKE_C_FLAGS:STRING='$EMCC_CFLAGS' |g' CMakeCache.txt
@@ -997,7 +1003,7 @@ function compile_nghttp2() {
 	if [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd nghttp2-1.50.0.tar.gz nghttp2_version
+	get_and_cd nghttp2-1.66.0.tar.gz nghttp2_version
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -1008,16 +1014,10 @@ function compile_nghttp2() {
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libev=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libcares=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libngtcp2=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libngtcp2_crypto_openssl=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_PythonInterp=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libnghttp3=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libbpf=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Systemd=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Jansson=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Libevent=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Cython=ON
-	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_PythonLibs=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_LibXml2=ON
 	cmake_configure+=$'\t'-DCMAKE_DISABLE_FIND_PACKAGE_Jemalloc=ON
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -1025,11 +1025,11 @@ function compile_nghttp2() {
 	fi
 	add_install_flags cmake_configure
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
-		cmake_configure+=$'\t'-DENABLE_STATIC_LIB=ON
-		cmake_configure+=$'\t'-DENABLE_SHARED_LIB=OFF
+		cmake_configure+=$'\t'-DBUILD_STATIC_LIBS=ON
+		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=OFF
 	else
-		cmake_configure+=$'\t'-DENABLE_STATIC_LIB=OFF
-		cmake_configure+=$'\t'-DENABLE_SHARED_LIB=ON
+		cmake_configure+=$'\t'-DBUILD_STATIC_LIBS=OFF
+		cmake_configure+=$'\t'-DBUILD_SHARED_LIBS=ON
 	fi
 	if [[ $BSH_HOST_PLATFORM == android ]]; then
 		add_android_flags cmake_configure
@@ -1107,13 +1107,13 @@ function compile() {
 	status=compiled
 }
 
+compile zlib
+compile libpng zlib
 compile nghttp2
 compile bzip2
 compile jsoncpp
 compile mbedtls
-compile zlib
 compile curl zlib mbedtls nghttp2
-compile libpng zlib
 compile sdl2
 compile fftw
 compile lua51
