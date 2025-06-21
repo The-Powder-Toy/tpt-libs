@@ -197,9 +197,9 @@ function export_path() {
 meson_cross_configure=
 if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	case $BSH_HOST_ARCH in
-	x86_64)  vs_env_arch=x64      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
-	x86)     vs_env_arch=x86      ; cmake_vs_toolset=v141; vcvars_ver=14.1;;
-	aarch64) vs_env_arch=x64_arm64; cmake_vs_toolset=v143; vcvars_ver=14.29;;
+	x86_64)  vs_env_arch=x64      ; cmake_vs_toolset=v141; vcvars_ver=14.29;;
+	x86)     vs_env_arch=x86      ; cmake_vs_toolset=v141; vcvars_ver=14.29;;
+	aarch64) vs_env_arch=x64_arm64; cmake_vs_toolset=v143; vcvars_ver=14.43;;
 	esac
 	cmake_vs_toolset=${BSH_VS_TOOLSET_CMAKE-$cmake_vs_toolset}
 	VS_ENV_PARAMS=$vs_env_arch$'\t'-vcvars_ver=${BSH_VS_TOOLSET-$vcvars_ver}
