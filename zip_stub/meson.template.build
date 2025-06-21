@@ -61,6 +61,41 @@ meson.override_dependency('lua5.2-c++', declare_dependency(
 ), static: is_static)
 
 if host_platform != 'emscripten'
+	if host_platform == 'windows'
+		zlib_name = 'zlib'
+		if is_static
+			zlib_name += 'static'
+		endif
+		if host_libc == 'msvc' and is_debug
+			zlib_name += 'd'
+		endif
+	else
+		zlib_name = 'z'
+	endif
+	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + zlib_name + '.dll', 'all' ] ]
+	args_ccomp = []
+	if host_platform == 'windows' and is_static and host_arch == 'x86_64'
+		foreach def : [ 'ZLIB_WINAPI' ]
+			if cpp_compiler.get_argument_syntax() == 'msvc'
+				args_ccomp += [ '/D' + def ]
+			else
+				args_ccomp += [ '-D' + def ]
+			endif
+		endforeach
+	endif
+	zlib_dep = declare_dependency(
+		dependencies: [
+			cpp_compiler.find_library(zlib_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+		],
+		include_directories: [
+			include_directories('include'),
+		],
+		version: zlib_version,
+		compile_args: args_ccomp,
+	)
+endif
+
+if host_platform != 'emscripten'
 	libcurl_name = 'curl'
 	nghttp2_name = 'nghttp2'
 	if is_debug
@@ -70,6 +105,16 @@ if host_platform != 'emscripten'
 	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + nghttp2_name + '.dll', 'all' ] ]
 	if host_libc == 'msvc' and not is_static
 		libcurl_name += '_imp'
+	endif
+	args_ccomp = []
+	if host_platform == 'windows' and is_static
+		foreach def : [ 'CURL_STATICLIB' ]
+			if cpp_compiler.get_argument_syntax() == 'msvc'
+				args_ccomp += [ '/D' + def ]
+			else
+				args_ccomp += [ '-D' + def ]
+			endif
+		endforeach
 	endif
 	meson.override_dependency('libcurl', declare_dependency(
 		dependencies: [
@@ -90,11 +135,13 @@ if host_platform != 'emscripten'
 				cpp_compiler.find_library('mbedtls', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 				cpp_compiler.find_library('mbedx509', dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
 			] : [],
+			zlib_dep,
 		],
 		include_directories: [
 			include_directories('include'),
 		],
 		version: curl_version,
+		compile_args: args_ccomp,
 	), static: is_static)
 endif
 
@@ -108,30 +155,6 @@ meson.override_dependency('fftw3f', declare_dependency(
 	],
 	version: fftw_version,
 ), static: is_static)
-
-if host_platform != 'emscripten'
-	if host_platform == 'windows'
-		zlib_name = 'zlib'
-		if is_static
-			zlib_name += 'static'
-		endif
-		if host_libc == 'msvc' and is_debug
-			zlib_name += 'd'
-		endif
-	else
-		zlib_name = 'z'
-	endif
-	config_dlls_pre += [ [ join_paths(meson.current_source_dir(), 'bin'), dll_prefix + zlib_name + '.dll', 'all' ] ]
-	meson.override_dependency('zlib', declare_dependency(
-		dependencies: [
-			cpp_compiler.find_library(zlib_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
-		],
-		include_directories: [
-			include_directories('include'),
-		],
-		version: zlib_version,
-	), static: is_static)
-endif
 
 if host_platform != 'emscripten'
 	sdl2_name = 'SDL2'
@@ -197,6 +220,7 @@ if host_platform != 'emscripten'
 	meson.override_dependency('libpng16', declare_dependency(
 		dependencies: [
 			cpp_compiler.find_library(png_name, dirs: join_paths(meson.current_source_dir(), lib_dir), static: is_static),
+			zlib_dep,
 		],
 		include_directories: [
 			include_directories('include'),
