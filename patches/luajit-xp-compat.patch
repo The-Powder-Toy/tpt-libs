@@ -1,0 +1,36 @@
+diff --strip-trailing-cr -Naur LuaJIT-2.1.0-git.old/src/lj_prng.c LuaJIT-2.1.0-git.new/src/lj_prng.c
+--- LuaJIT-2.1.0-git.old/src/lj_prng.c	2025-09-01 15:00:44.132568000 +0200
++++ LuaJIT-2.1.0-git.new/src/lj_prng.c	2025-09-01 15:00:44.336904400 +0200
+@@ -95,6 +95,23 @@
+ 
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
++#include <wincrypt.h>
++
++static NTSTATUS BCryptGenRandom_xp(BCRYPT_ALG_HANDLE hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags)
++{
++    HCRYPTPROV p;
++    NTSTATUS status = 0;
++    if (!status && CryptAcquireContextA(&p, NULL, NULL, 1, UINT32_C(0xF0000000)) == 0)
++    {
++        status = 1;
++    }
++    if (!status && CryptGenRandom(p, cbBuffer, (BYTE *)pbBuffer) == 0)
++    {
++        status = 1;
++    }
++    CryptReleaseContext(p, 0);
++    return status;
++}
+ 
+ #if LJ_TARGET_UWP || LJ_TARGET_XBOXONE
+ /* Must use BCryptGenRandom. */
+@@ -187,7 +204,7 @@
+ 
+ #elif LJ_TARGET_UWP || LJ_TARGET_XBOXONE
+ 
+-  if (BCryptGenRandom(NULL, (PUCHAR)(rs->u), (ULONG)sizeof(rs->u),
++  if (BCryptGenRandom_xp(NULL, (PUCHAR)(rs->u), (ULONG)sizeof(rs->u),
+ 		      BCRYPT_USE_SYSTEM_PREFERRED_RNG) >= 0)
+     goto ok;
+ 

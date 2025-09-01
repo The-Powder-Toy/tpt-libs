@@ -124,6 +124,11 @@ if host_platform != 'emscripten'
 				cpp_compiler.find_library('wsock32'),
 				cpp_compiler.find_library('ws2_32'),
 				cpp_compiler.find_library('crypt32'),
+			] : [],
+			(host_platform == 'windows' and (host_arch == 'x86' and host_libc == 'mingw')) ? [
+				cpp_compiler.find_library('advapi32'),
+			] : [],
+			(host_platform == 'windows' and not (host_arch == 'x86' and host_libc == 'mingw')) ? [
 				cpp_compiler.find_library('bcrypt'),
 			] : [],
 			host_platform == 'darwin' ? dependency('AppleFrameworks', modules: [

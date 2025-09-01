@@ -1,0 +1,12 @@
+diff --strip-trailing-cr -Naur jsoncpp-1.9.5.old/src/lib_json/json_value.cpp jsoncpp-1.9.5.new/src/lib_json/json_value.cpp
+--- jsoncpp-1.9.5.old/src/lib_json/json_value.cpp	2025-09-01 12:20:10.163234300 +0200
++++ jsoncpp-1.9.5.new/src/lib_json/json_value.cpp	2025-09-01 12:20:28.366495000 +0200
+@@ -24,7 +24,7 @@
+                                       const char* format, va_list ap) {
+   int count = -1;
+   if (size != 0)
+-    count = _vsnprintf_s(outBuf, size, _TRUNCATE, format, ap);
++    count = _vsnprintf(outBuf, size, format, ap);
+   if (count == -1)
+     count = _vscprintf(format, ap);
+   return count;

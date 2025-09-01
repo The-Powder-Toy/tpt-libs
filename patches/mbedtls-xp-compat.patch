@@ -1,0 +1,62 @@
+diff --strip-trailing-cr -Naur mbedtls-3.6.2.old/library/entropy_poll.c mbedtls-3.6.2.new/library/entropy_poll.c
+--- mbedtls-3.6.2.old/library/entropy_poll.c	2025-09-01 14:51:12.022746700 +0200
++++ mbedtls-3.6.2.new/library/entropy_poll.c	2025-09-01 14:53:33.054902200 +0200
+@@ -39,9 +39,24 @@
+ #if defined(_WIN32) && !defined(EFIX64) && !defined(EFI32)
+ 
+ #include <windows.h>
+-#include <bcrypt.h>
+ #include <intsafe.h>
+ 
++static NTSTATUS BCryptGenRandom_xp(BCRYPT_ALG_HANDLE hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags)
++{
++    HCRYPTPROV p;
++    NTSTATUS status = 0;
++    if (!status && CryptAcquireContextA(&p, NULL, NULL, 1, UINT32_C(0xF0000000)) == 0)
++    {
++        status = 1;
++    }
++    if (!status && CryptGenRandom(p, cbBuffer, (BYTE *)pbBuffer) == 0)
++    {
++        status = 1;
++    }
++    CryptReleaseContext(p, 0);
++    return status;
++}
++
+ int mbedtls_platform_entropy_poll(void *data, unsigned char *output, size_t len,
+                                   size_t *olen)
+ {
+@@ -57,7 +72,7 @@
+         unsigned long ulong_bytes =
+             (len > ULONG_MAX) ? ULONG_MAX : (unsigned long) len;
+ 
+-        if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, output, ulong_bytes,
++        if (!BCRYPT_SUCCESS(BCryptGenRandom_xp(NULL, output, ulong_bytes,
+                                             BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
+             return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+         }
+diff --strip-trailing-cr -Naur mbedtls-3.6.2.old/library/platform.c mbedtls-3.6.2.new/library/platform.c
+--- mbedtls-3.6.2.old/library/platform.c	2025-09-01 14:51:12.038874700 +0200
++++ mbedtls-3.6.2.new/library/platform.c	2025-09-01 14:51:12.523401000 +0200
+@@ -122,7 +122,7 @@
+     }
+ 
+ #if defined(_TRUNCATE)
+-    ret = vsnprintf_s(s, n, _TRUNCATE, fmt, arg);
++    ret = vsnprintf(s, n, fmt, arg);
+ #else
+     ret = vsnprintf(s, n, fmt, arg);
+     if (ret < 0 || (size_t) ret == n) {
+diff --strip-trailing-cr -Naur mbedtls-3.6.2.old/programs/psa/psa_constant_names.c mbedtls-3.6.2.new/programs/psa/psa_constant_names.c
+--- mbedtls-3.6.2.old/programs/psa/psa_constant_names.c	2025-09-01 14:51:11.788303300 +0200
++++ mbedtls-3.6.2.new/programs/psa/psa_constant_names.c	2025-09-01 14:51:12.523401000 +0200
+@@ -26,7 +26,7 @@
+ 
+     va_start(argp, fmt);
+ #if defined(_TRUNCATE) && !defined(__MINGW32__)
+-    ret = _vsnprintf_s(s, n, _TRUNCATE, fmt, argp);
++    ret = _vsnprintf(s, n, fmt, argp);
+ #else
+     ret = _vsnprintf(s, n, fmt, argp);
+     if (ret < 0 || (size_t) ret == n) {

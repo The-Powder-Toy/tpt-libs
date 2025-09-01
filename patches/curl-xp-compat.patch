@@ -1,0 +1,33 @@
+diff --strip-trailing-cr -Naur curl-8.10.1.old/lib/rand.c curl-8.10.1.new/lib/rand.c
+--- curl-8.10.1.old/lib/rand.c	2025-09-01 14:53:50.960458700 +0200
++++ curl-8.10.1.new/lib/rand.c	2025-09-01 14:56:16.261552200 +0200
+@@ -68,12 +68,28 @@
+ #  endif
+ #endif
+ 
++static NTSTATUS BCryptGenRandom_xp(BCRYPT_ALG_HANDLE hAlgorithm, PUCHAR pbBuffer, ULONG cbBuffer, ULONG dwFlags)
++{
++    HCRYPTPROV p;
++    NTSTATUS status = 0;
++    if (!status && CryptAcquireContextA(&p, NULL, NULL, 1, UINT32_C(0xF0000000)) == 0)
++    {
++        status = 1;
++    }
++    if (!status && CryptGenRandom(p, cbBuffer, (BYTE *)pbBuffer) == 0)
++    {
++        status = 1;
++    }
++    CryptReleaseContext(p, 0);
++    return status;
++}
++
+ CURLcode Curl_win32_random(unsigned char *entropy, size_t length)
+ {
+   memset(entropy, 0, length);
+ 
+ #if defined(HAVE_WIN_BCRYPTGENRANDOM)
+-  if(BCryptGenRandom(NULL, entropy, (ULONG)length,
++  if(BCryptGenRandom_xp(NULL, entropy, (ULONG)length,
+                      BCRYPT_USE_SYSTEM_PREFERRED_RNG) != STATUS_SUCCESS)
+     return CURLE_FAILED_INIT;
+ 

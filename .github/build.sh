@@ -16,8 +16,12 @@ IFS=$'\n\t'
 
 . ./.github/common.sh
 
-if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]] && [[ -z $MSYSTEM ]]; then
+if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86_64-windows-mingw ]] && [[ -z $MSYSTEM ]]; then
 	exec 'C:\msys64\ucrt64.exe' '-c' $0
+	exit 1
+fi
+if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]] && [[ -z $MSYSTEM ]]; then
+	exec 'C:\msys64\mingw32.exe' '-c' $0
 	exit 1
 fi
 
@@ -83,6 +87,7 @@ case $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC-$BSH_STATIC_DYNAMIC in
 x86_64-linux-gnu-static) ;;
 aarch64-linux-gnu-static) ;;
 x86_64-windows-mingw-static) ;;
+x86-windows-mingw-static) ;;
 x86_64-windows-msvc-static) ;;
 x86_64-windows-msvc-dynamic) ;;
 x86-windows-msvc-static) ;;
@@ -128,7 +133,12 @@ if [[ -z ${BSH_NO_PACKAGES-} ]]; then
 		;;
 	windows)
 		if [[ $BSH_BUILD_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
-			pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-{gcc,cmake,make,ninja,7zip} patch
+			if [[ $BSH_HOST_ARCH == x86_64 ]]; then
+				variant=ucrt-x86_64
+			else
+				variant=i686
+			fi
+			pacman -S --noconfirm --needed mingw-w64-"$variant"-{gcc,cmake,make,ninja,meson,7zip} patch
 		fi
 		;;
 	android)
@@ -207,12 +217,19 @@ if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
 	if [[ $BSH_HOST_ARCH == aarch64 ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$(export_path $repo/.github/msvca64-ghactions.ini)
 	fi
-elif [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-mingw ]]; then
+elif [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86_64-windows-mingw ]]; then
 	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
 		meson_cross_configure+=$'\t'--cross-file=$repo/.github/mingw-ghactions.ini
 	fi
 	export CC=x86_64-w64-mingw32-gcc
 	export CXX=x86_64-w64-mingw32-g++
+elif [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $BSH_BUILD_PLATFORM == linux ]]; then
+		>&2 echo "nyi cc"
+		exit 1
+	fi
+	export CC="i686-w64-mingw32-gcc -D_WIN32_WINNT=0x0501"
+	export CXX="i686-w64-mingw32-g++ -D_WIN32_WINNT=0x0501"
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	# may need export SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)
 	CC=clang
@@ -519,6 +536,9 @@ function compile_mbedtls() {
 		return
 	fi
 	get_and_cd mbedtls-3.6.2.tar.bz2 mbedtls_version
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+		patch_breakpoint $patches_real/mbedtls-xp-compat.patch apply
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -603,6 +623,9 @@ function compile_curl() {
 		return
 	fi
 	get_and_cd curl-8.10.1.tar.gz curl_version
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+		patch_breakpoint $patches_real/curl-xp-compat.patch apply
+	fi
 	patch_breakpoint $patches_real/curl-mbedtls-usage.patch apply
 	curl_version+="+nghttp2-$nghttp2_version"
 	curl_version+="+zlib-$zlib_version"
@@ -810,6 +833,9 @@ function compile_luajit() {
 		return
 	fi
 	get_and_cd LuaJIT-2.1.0-git.tar.gz luajit_version
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+		patch_breakpoint $patches_real/luajit-xp-compat.patch apply
+	fi
 	mkdir $zip_root_real/luajit
 	mkdir $zip_root_real/luajit/include
 	if [[ $BSH_HOST_PLATFORM-$BSH_HOST_LIBC == windows-msvc ]]; then
@@ -952,6 +978,9 @@ function compile_fftw() {
 
 function compile_jsoncpp() {
 	get_and_cd jsoncpp-1.9.5.tar.gz jsoncpp_version
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+		patch_breakpoint $patches_real/jsoncpp-xp-compat.patch apply
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja
@@ -1004,6 +1033,9 @@ function compile_nghttp2() {
 		return
 	fi
 	get_and_cd nghttp2-1.66.0.tar.gz nghttp2_version
+	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+		patch_breakpoint $patches_real/nghttp2-xp-compat.patch apply
+	fi
 	mkdir build
 	cmake_configure=cmake # not local because add_*_flags can't deal with that
 	cmake_configure+=$'\t'-G$'\t'Ninja

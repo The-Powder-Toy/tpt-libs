@@ -43,6 +43,8 @@ jobs:
       - uses: actions/checkout@v4
       - if: matrix.force_msys2_bash == 'yes'
         run: bash -c './.github/force-msys2-bash.sh'
+        env:
+          BSH_HOST_ARCH: ${{ matrix.bsh_host_arch }}
       - if: matrix.force_msys2_bash == 'yes'
         run: bash -c 'pacman -Syu --noconfirm'
       - uses: actions/setup-python@v5

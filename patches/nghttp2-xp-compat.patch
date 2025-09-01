@@ -1,0 +1,12 @@
+diff --strip-trailing-cr -Naur nghttp2-1.66.0.old/third-party/mruby/src/etc.c nghttp2-1.66.0.new/third-party/mruby/src/etc.c
+--- nghttp2-1.66.0.old/third-party/mruby/src/etc.c	2025-09-01 12:19:18.117075700 +0200
++++ nghttp2-1.66.0.new/third-party/mruby/src/etc.c	2025-09-01 12:19:41.490679100 +0200
+@@ -228,7 +228,7 @@
+   int cnt;
+   va_list argcp;
+   va_copy(argcp, arg);
+-  if (n == 0 || (cnt = _vsnprintf_s(s, n, _TRUNCATE, format, argcp)) < 0) {
++  if (n == 0 || (cnt = _vsnprintf(s, n, format, argcp)) < 0) {
+     cnt = _vscprintf(format, arg);
+   }
+   va_end(argcp);
