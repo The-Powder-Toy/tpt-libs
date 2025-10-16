@@ -1,7 +1,7 @@
 set -euo pipefail
 IFS=$'\t\n'
 
-if [[ $BSH_HOST_ARCH == x86 ]]; then
+if [[ $BSH_HOST_ARCH == x86 ]] || [[ $BSH_HOST_ARCH == x86_old ]]; then
 	env=mingw32
 	msystem=MINGW32
 else

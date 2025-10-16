@@ -16,12 +16,22 @@ IFS=$'\n\t'
 
 . ./.github/common.sh
 
-if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86_64-windows-mingw ]] && [[ -z $MSYSTEM ]]; then
-	exec 'C:\msys64\ucrt64.exe' '-c' $0
-	exit 1
+x86_old=no
+if [[ $BSH_HOST_ARCH == x86_old ]]; then
+	export BSH_HOST_ARCH=x86
+	x86_old=yes
 fi
-if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]] && [[ -z $MSYSTEM ]]; then
+
+xp=no
+if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	xp=yes
+fi
+
+if [[ $xp == yes ]] && [[ -z $MSYSTEM ]]; then
 	exec 'C:\msys64\mingw32.exe' '-c' $0
+	exit 1
+elif [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86_64-windows-mingw ]] && [[ -z $MSYSTEM ]]; then
+	exec 'C:\msys64\ucrt64.exe' '-c' $0
 	exit 1
 fi
 
@@ -228,8 +238,21 @@ elif [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]
 		>&2 echo "nyi cc"
 		exit 1
 	fi
-	export CC="i686-w64-mingw32-gcc -D_WIN32_WINNT=0x0501"
-	export CXX="i686-w64-mingw32-g++ -D_WIN32_WINNT=0x0501"
+	export CC=i686-w64-mingw32-gcc
+	export CXX=i686-w64-mingw32-g++
+	if [[ $xp == yes ]]; then
+		CC+=" -D_WIN32_WINNT=0x0501"
+		CXX+=" -D_WIN32_WINNT=0x0501"
+		if [[ $x86_old == yes ]]; then
+			CC+=" -march=pentium"
+			CXX+=" -march=pentium"
+		else
+			CC+=" -march=pentium4"
+			CXX+=" -march=pentium4"
+		fi
+		export CC
+		export CXX
+	fi
 elif [[ $BSH_HOST_PLATFORM == darwin ]]; then
 	# may need export SDKROOT=$(xcrun --show-sdk-path --sdk macosx11.1)
 	CC=clang
@@ -536,7 +559,7 @@ function compile_mbedtls() {
 		return
 	fi
 	get_and_cd mbedtls-3.6.2.tar.bz2 mbedtls_version
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/mbedtls-xp-compat.patch apply
 	fi
 	mkdir build
@@ -601,6 +624,7 @@ function compile_libpng() {
 		esac
 		cmake_configure+=$'\t'-DZLIB_LIBRARY=$(export_path $zlib_path)
 	fi
+	cmake_configure+=$'\t'-DPNG_HARDWARE_OPTIMIZATIONS=OFF
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
 		cmake_configure+=$'\t'-DPNG_SHARED=OFF
 	fi
@@ -623,7 +647,7 @@ function compile_curl() {
 		return
 	fi
 	get_and_cd curl-8.10.1.tar.gz curl_version
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/curl-xp-compat.patch apply
 	fi
 	patch_breakpoint $patches_real/curl-mbedtls-usage.patch apply
@@ -707,6 +731,23 @@ function compile_sdl2() {
 		cmake_configure+=$'\t'-DCMAKE_VS_PLATFORM_TOOLSET=$cmake_vs_toolset
 	fi
 	add_install_flags cmake_configure
+	if [[ $xp == yes ]]; then
+		if [[ $x86_old == yes ]]; then
+			cmake_configure+=$'\t'-DSDL_MMX=OFF
+			cmake_configure+=$'\t'-DSDL_SSEMATH=OFF
+			cmake_configure+=$'\t'-DSDL_SSE=OFF
+			cmake_configure+=$'\t'-DSDL_SSE2=OFF
+			cmake_configure+=$'\t'-DSDL_SSE3=OFF
+			cmake_configure+=$'\t'-DSDL_3DNOW=OFF
+		else
+			cmake_configure+=$'\t'-DSDL_MMX=ON
+			cmake_configure+=$'\t'-DSDL_SSEMATH=ON
+			cmake_configure+=$'\t'-DSDL_SSE=ON
+			cmake_configure+=$'\t'-DSDL_SSE2=OFF
+			cmake_configure+=$'\t'-DSDL_SSE3=OFF
+			cmake_configure+=$'\t'-DSDL_3DNOW=OFF
+		fi
+	fi
 	cmake_configure+=$'\t'-DSDL_AUDIO=OFF
 	cmake_configure+=$'\t'-DSDL_POWER=OFF
 	cmake_configure+=$'\t'-DSDL_LIBC=ON
@@ -833,7 +874,7 @@ function compile_luajit() {
 		return
 	fi
 	get_and_cd LuaJIT-2.1.0-git.tar.gz luajit_version
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/luajit-xp-compat.patch apply
 	fi
 	mkdir $zip_root_real/luajit
@@ -872,6 +913,9 @@ function compile_luajit() {
 			make_configure+=$'\t'TARGET_SYS=Windows
 			if [[ $BSH_HOST_LIBC == mingw ]]; then
 				make_configure+=$'\t'CC=$CC
+			fi
+			if [[ $x86_old == yes ]]; then
+				make_configure+=$'\t'CCOPT_x86=" -march=i686"
 			fi
 		fi
 		if [[ $BSH_HOST_PLATFORM == darwin ]]; then
@@ -941,8 +985,10 @@ function compile_fftw() {
 	x86_64)
 		;&
 	x86)
-		cmake_configure+=$'\t'-DENABLE_SSE=ON
-		cmake_configure+=$'\t'-DENABLE_SSE2=ON
+		if [[ $x86_old != yes ]]; then
+			cmake_configure+=$'\t'-DENABLE_SSE=ON
+			cmake_configure+=$'\t'-DENABLE_SSE2=ON
+		fi
 		;;
 	esac
 	if [[ $BSH_STATIC_DYNAMIC == static ]]; then
@@ -978,7 +1024,7 @@ function compile_fftw() {
 
 function compile_jsoncpp() {
 	get_and_cd jsoncpp-1.9.5.tar.gz jsoncpp_version
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/jsoncpp-xp-compat.patch apply
 	fi
 	mkdir build
@@ -1033,7 +1079,7 @@ function compile_nghttp2() {
 		return
 	fi
 	get_and_cd nghttp2-1.66.0.tar.gz nghttp2_version
-	if [[ $BSH_HOST_ARCH-$BSH_HOST_PLATFORM-$BSH_HOST_LIBC == x86-windows-mingw ]]; then
+	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/nghttp2-xp-compat.patch apply
 	fi
 	mkdir build
