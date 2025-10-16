@@ -72,7 +72,7 @@ get_and_cd() {
 	# changes upstream), not for cryptographic verification; there is of course
 	# no reason to validate the tarballs if they come right from the repo, but
 	# it is useful if you choose to not trust those and download ones yourself
-	echo $sha256sum $tarball | sha256sum -c
+	echo $sha256sum $tarball | sha256sum -c -
 	tar -xf $tarball
 	cd *
 }
@@ -548,7 +548,7 @@ function compile_zlib() {
 		cp **/zlib*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo d106dcdb2a0b3087cb3a2380b9f00a0bbadc7eb835cd80408f94a2d78d69727d README | sha256sum -c
+	echo d106dcdb2a0b3087cb3a2380b9f00a0bbadc7eb835cd80408f94a2d78d69727d README | sha256sum -c -
 	sed -n 84,105p README > $zip_root_real/licenses/zlib.LICENSE
 	uncd_and_unget
 	library_versions+="zlib_version = '$zlib_version-tpt-libs'"$'\n'
@@ -588,7 +588,7 @@ function compile_mbedtls() {
 		cp **/mbed*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo 9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b LICENSE | sha256sum -c
+	echo 9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b LICENSE | sha256sum -c -
 	cp LICENSE $zip_root_real/licenses/mbedtls.LICENSE
 	uncd_and_unget
 }
@@ -636,7 +636,7 @@ function compile_libpng() {
 		cp **/*png*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo 16d9daaafbf63a31a5bdc91d4600972548fef5aaa1244202393288dbd079c49a LICENSE | sha256sum -c
+	echo 16d9daaafbf63a31a5bdc91d4600972548fef5aaa1244202393288dbd079c49a LICENSE | sha256sum -c -
 	cp LICENSE $zip_root_real/licenses/libpng.LICENSE
 	uncd_and_unget
 	library_versions+="libpng_version = '$libpng_version-tpt-libs'"$'\n'
@@ -707,7 +707,7 @@ function compile_curl() {
 		fi
 	fi
 	cd ..
-	echo adb1fc06547fd136244179809f7b7c2d2ae6c4534f160aa513af9b6a12866a32 COPYING | sha256sum -c
+	echo adb1fc06547fd136244179809f7b7c2d2ae6c4534f160aa513af9b6a12866a32 COPYING | sha256sum -c -
 	cp COPYING $zip_root_real/licenses/libcurl.LICENSE
 	uncd_and_unget
 	library_versions+="curl_version = '$curl_version-tpt-libs'"$'\n'
@@ -795,7 +795,7 @@ function compile_sdl2() {
 		cp sdl.jar $zip_root_real/lib
 		cd ../../../../..
 	fi
-	echo 9b9e1764f06701bcf7ce21e942c682d5921ba0900c6fca760321b1c8837a9662 LICENSE.txt | sha256sum -c
+	echo 9b9e1764f06701bcf7ce21e942c682d5921ba0900c6fca760321b1c8837a9662 LICENSE.txt | sha256sum -c -
 	cp LICENSE.txt $zip_root_real/licenses/sdl2.LICENSE
 	uncd_and_unget
 	library_versions+="sdl2_version = '$sdl2_version-tpt-libs'"$'\n'
@@ -853,7 +853,7 @@ function compile_lua5x() {
 
 function compile_lua52() {
 	get_and_cd lua-5.2.4.tar.gz lua52_version
-	echo aaa571c445bdafe72c7e116bda8f2a415e8dcb05d988e4072e6dc15029c32fae src/lua.h | sha256sum -c
+	echo aaa571c445bdafe72c7e116bda8f2a415e8dcb05d988e4072e6dc15029c32fae src/lua.h | sha256sum -c -
 	compile_lua5x lua5.2
 	sed -n 425,444p src/lua.h > $zip_root_real/licenses/lua5.2.LICENSE
 	uncd_and_unget
@@ -862,7 +862,7 @@ function compile_lua52() {
 
 function compile_lua51() {
 	get_and_cd lua-5.1.5.tar.gz lua51_version
-	echo 470551c185f058360f8d0f9e5c54a29a3950f78af6a93f3fe9e4039a380c7b87 src/lua.h | sha256sum -c
+	echo 470551c185f058360f8d0f9e5c54a29a3950f78af6a93f3fe9e4039a380c7b87 src/lua.h | sha256sum -c -
 	compile_lua5x lua5.1
 	sed -n 369,388p src/lua.h > $zip_root_real/licenses/lua5.1.LICENSE
 	uncd_and_unget
@@ -962,7 +962,7 @@ function compile_luajit() {
 	cp src/lua.h $zip_root_real/luajit/include
 	cp src/luaconf.h $zip_root_real/luajit/include
 	cp src/lualib.h $zip_root_real/luajit/include
-	echo 4e546dc0556ca5f1514ae9d9bad723501a51da556342590b7076fb42f2930f25 COPYRIGHT | sha256sum -c
+	echo 4e546dc0556ca5f1514ae9d9bad723501a51da556342590b7076fb42f2930f25 COPYRIGHT | sha256sum -c -
 	cp COPYRIGHT $zip_root_real/licenses/luajit.LICENSE
 	uncd_and_unget
 	library_versions+="luajit_version = '$luajit_version-tpt-libs'"$'\n'
@@ -1016,7 +1016,7 @@ function compile_fftw() {
 		cp **/fftw3f.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo 231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c COPYING | sha256sum -c
+	echo 231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c COPYING | sha256sum -c -
 	cp COPYING $zip_root_real/licenses/fftw3f.LICENSE
 	uncd_and_unget
 	library_versions+="fftw_version = '$fftw_version-tpt-libs'"$'\n'
@@ -1068,7 +1068,7 @@ function compile_jsoncpp() {
 		cp **/jsoncpp*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo cec0db5f6d7ed6b3a72647bd50aed02e13c3377fd44382b96dc2915534c042ad LICENSE | sha256sum -c
+	echo cec0db5f6d7ed6b3a72647bd50aed02e13c3377fd44382b96dc2915534c042ad LICENSE | sha256sum -c -
 	cp LICENSE $zip_root_real/licenses/jsoncpp.LICENSE
 	uncd_and_unget
 	library_versions+="jsoncpp_version = '$jsoncpp_version-tpt-libs'"$'\n'
@@ -1123,7 +1123,7 @@ function compile_nghttp2() {
 		cp **/nghttp2*.pdb $zip_root_real/lib
 	fi
 	cd ..
-	echo 6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a COPYING | sha256sum -c
+	echo 6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a COPYING | sha256sum -c -
 	cp COPYING $zip_root_real/licenses/nghttp2.LICENSE
 	uncd_and_unget
 }
@@ -1158,7 +1158,7 @@ function compile_bzip2() {
 	cd build
 	ninja -v install
 	cd ..
-	echo c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3 LICENSE | sha256sum -c
+	echo c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3 LICENSE | sha256sum -c -
 	cp LICENSE $zip_root_real/licenses/bzip2.LICENSE
 	uncd_and_unget
 	library_versions+="bzip2_version = '$bzip2_version-tpt-libs'"$'\n'
