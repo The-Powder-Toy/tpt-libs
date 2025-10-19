@@ -48,7 +48,7 @@ tarball_hash() {
 	curl-8.10.1.tar.gz)        sha256sum=d15ebab765d793e2e96db090f0e172d127859d78ca6f6391d7eafecfd894bbc0;; # acquired from https://curl.se/download/curl-8.10.1.tar.gz
 	SDL2-2.30.9.tar.gz)        sha256sum=24b574f71c87a763f50704bbb630cbe38298d544a1f890f099a4696b1d6beba4;; # acquired from https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-2.30.9.tar.gz
 	libpng-1.6.49.tar.gz)      sha256sum=d173dada6181ef1638bcdb9526dd46a0f5eee08e3be9615e628ae54f888f17f9;; # acquired from https://download.sourceforge.net/libpng/libpng-1.6.49.tar.gz
-	mbedtls-3.6.2.tar.bz2)     sha256sum=8b54fb9bcf4d5a7078028e0520acddefb7900b3e66fec7f7175bb5b7d85ccdca;; # acquired from https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.2/mbedtls-3.6.2.tar.bz2
+	mbedtls-3.6.4.tar.bz2)     sha256sum=ec35b18a6c593cf98c3e30db8b98ff93e8940a8c4e690e66b41dfc011d678110;; # acquired from https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.4/mbedtls-3.6.4.tar.bz2
 	jsoncpp-1.9.5.tar.gz)      sha256sum=f409856e5920c18d0c2fb85276e24ee607d2a09b5e7d5f0a371368903c275da2;; # acquired from https://github.com/open-source-parsers/jsoncpp/archive/refs/tags/1.9.5.tar.gz
 	bzip2-1.0.8.tar.gz)        sha256sum=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269;; # acquired from https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
 	nghttp2-1.66.0.tar.gz)     sha256sum=e178687730c207f3a659730096df192b52d3752786c068b8e5ee7aeb8edae05a;; # acquired from https://github.com/nghttp2/nghttp2/releases/download/v1.66.0/nghttp2-1.66.0.tar.gz
@@ -558,7 +558,7 @@ function compile_mbedtls() {
 	if [[ $BSH_HOST_PLATFORM == darwin ]] || [[ $BSH_HOST_PLATFORM == emscripten ]]; then
 		return
 	fi
-	get_and_cd mbedtls-3.6.2.tar.bz2 mbedtls_version
+	get_and_cd mbedtls-3.6.4.tar.bz2 mbedtls_version
 	if [[ $xp == yes ]]; then
 		patch_breakpoint $patches_real/mbedtls-xp-compat.patch apply
 	fi
